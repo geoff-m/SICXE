@@ -19,17 +19,32 @@ namespace SICXE
             try
             {
                 read = new StreamReader(path);
+                int lineCount = 0;
                 while (!read.EndOfStream)
                 {
                     var line = read.ReadLine();
+                    ++lineCount;
+                    
                     // Strip comments.
                     int commentStart = line.IndexOf(';');
-                    if (commentStart > 0)
+                    if (commentStart <= 0)
+                        continue;
+                    line = line.Substring(0, line.Length - commentStart);
+                    line = line.Trim();
+                    if (line.Length == 0)
+                        continue;
+
+                    var tokens = SmartSplit(line);
+                    if (Enum.TryParse(tokens[0], true, out Operation op))
                     {
-                        line = line.Substring(0, line.Length - commentStart);
-                        line = line.Trim();
-                        var tokens = SmartSplit(line);
-                        
+
+                    }
+                    else
+                    {
+                        Console.WriteLine("Error parsing program: Unknown operation \"{0}\" on line {0} in {1}.",
+                            tokens[0],
+                            lineCount,
+                            Path.GetFileName(path));
                     }
                 }
             }
