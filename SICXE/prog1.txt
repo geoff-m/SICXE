@@ -1,5 +1,5 @@
 ﻿
 LDA 1337 ; A <- 1337
-STA 0	; mem[0] <- A
-ADD 3 ; A += 3
-STA 5  ; mem[5] <- A
+STA 0	 ; mem[0] <- A
+ADD 3	 ; A += 3
+STA 5	 ; mem[5] <- A

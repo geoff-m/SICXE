@@ -20,6 +20,8 @@ namespace SICXE
 
             mymachine.Execute(myprog);
 
+            mymachine.DumpWords(0, 20);
+
         }
     }
 }

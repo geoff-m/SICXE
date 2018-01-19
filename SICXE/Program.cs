@@ -15,6 +15,7 @@ namespace SICXE
     {
         public static Program FromFile(string path)
         {
+            //throw new NotImplementedException();
             StreamReader read = null;
             try
             {
@@ -34,18 +35,7 @@ namespace SICXE
                     if (line.Length == 0)
                         continue;
 
-                    var tokens = SmartSplit(line);
-                    if (Enum.TryParse(tokens[0], true, out Operation op))
-                    {
-
-                    }
-                    else
-                    {
-                        Console.WriteLine("Error parsing program: Unknown operation \"{0}\" on line {0} in {1}.",
-                            tokens[0],
-                            lineCount,
-                            Path.GetFileName(path));
-                    }
+                   // parse this line as an instruction using Instruction.Parse
                 }
             }
             finally
@@ -54,72 +44,6 @@ namespace SICXE
                     read.Dispose();
             }
         }
-
-        private static string[] SmartSplit(string str)
-        // Functions same as string.split(), except:
-        // Does not split what is surrounded by quotation marks
-        // Aware of \" escaped quotation marks.
-        // Only splits once on contiguous whitespace.
-        {
-            if (str.Length == 0)
-                return new string[0];
-            var ret = new List<string>();
-            var current = new StringBuilder();
-            bool inwhite = char.IsWhiteSpace(str[0]);
-            bool insideliteral = false;
-            for (int i = 0; i < str.Length; ++i)
-            {
-                char c = str[i];
-                if (insideliteral)
-                {
-                    if (c == '"' && (i > 0 || str[i - 1] != '\\'))
-                    {
-                        insideliteral = false;
-                    }
-                    else
-                    {
-                        //Debug.WriteLine("literal: " + current.ToString());
-                    }
-                    current.Append(c);
-                }
-                else
-                {
-                    if (c == '"' && (i == 0 || str[i - 1] != '\\'))
-                    {
-                        inwhite = false;
-                        insideliteral = true;
-                        current.Append(c);
-                        continue;
-                    }
-                    if (char.IsWhiteSpace(c))
-                    {
-                        if (!inwhite)
-                        {
-                            // This is a transition to white.
-                            //Debug.WriteLine("pushing " + current.ToString());
-                            ret.Add(current.ToString());
-                            current.Clear();
-                            inwhite = true;
-                        }
-                    }
-                    else
-                    {
-                        inwhite = false;
-                        current.Append(c);
-                        //Debug.WriteLine("cat name: " + current.ToString());
-                    }
-                }
-            }
-            if (!inwhite && current.Length > 0)
-            {
-                //Debug.WriteLine("pushing " + current.ToString());
-                ret.Add(current.ToString());
-            }
-
-            return ret.ToArray();
-        }
-
-
 
         public Program()
         {

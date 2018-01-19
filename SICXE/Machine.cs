@@ -90,12 +90,23 @@ namespace SICXE
             memory[address + 2] = w.High;
         }
 
+        /// <summary>
+        /// Writes a portion of this machine's memory to the console.
+        /// </summary>
+        /// <param name="startAddress">The address of the first word to print.</param>
+        /// <param name="count">The number of words to print.</param>
         public void DumpWords(int startAddress, int count)
         {
+            startAddress *= 3;
+            count *= 3;
             int stop = startAddress + count;
-            for (int i = startAddress; i < stop; ++i)
+            for (int wordIdx = startAddress; wordIdx < stop; wordIdx += 12)
             {
-                Console.WriteLine("{0:x} {1}")
+                Console.WriteLine("0x{0:X}: \t{1:00000} {2:00000} {3:00000} {4:00000}", wordIdx,
+                    (int)Word.FromArray(memory, wordIdx),
+                    (int)Word.FromArray(memory, wordIdx + 3),
+                    (int)Word.FromArray(memory, wordIdx + 6),
+                    (int)Word.FromArray(memory, wordIdx + 9));
             }
         }
 
