@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.IO;
-using System.Diagnostics;
 using System.Collections;
 
 namespace SICXE
@@ -13,38 +11,6 @@ namespace SICXE
     /// </summary>
     class Program : IList<Instruction>
     {
-        public static Program FromFile(string path)
-        {
-            //throw new NotImplementedException();
-            StreamReader read = null;
-            try
-            {
-                read = new StreamReader(path);
-                int lineCount = 0;
-                while (!read.EndOfStream)
-                {
-                    var line = read.ReadLine();
-                    ++lineCount;
-                    
-                    // Strip comments.
-                    int commentStart = line.IndexOf(';');
-                    if (commentStart <= 0)
-                        continue;
-                    line = line.Substring(0, line.Length - commentStart);
-                    line = line.Trim();
-                    if (line.Length == 0)
-                        continue;
-
-                   // parse this line as an instruction using Instruction.Parse
-                }
-            }
-            finally
-            {
-                if (read != null)
-                    read.Dispose();
-            }
-        }
-
         public Program()
         {
             prog = new List<Instruction>();

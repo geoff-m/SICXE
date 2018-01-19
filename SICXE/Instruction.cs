@@ -1,174 +1,109 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.IO;
 using System.Diagnostics;
+using System.Collections.Generic;
 
 namespace SICXE
 {
+    enum Mnemonic
+    {
+        // Arithmetic
+        ADD = 0x18,
+        SUB = 0x1C,
+        MUL = 0x20,
+        DIV = 0x24,
 
+        // Bitwise
+        AND = 0x40,
+        OR = 0x44,
+        SHIFTL = 0xA4,
+        SHIFTR = 0xA8,
+
+        // Flow control
+        J = 0x3C,
+        JEQ = 0x30,
+        JGT = 0x34,
+        JLT = 0x38,
+        JSUB = 0x48,
+        RSUB = 0x4C,
+
+        // Registers
+        LDA = 0x00,
+        LDL = 0x08,
+        STA = 0x0C,
+        STL = 0x14,
+        STX = 0x10,
+        CLEAR = 0xB4,
+
+        // I/O
+        RD = 0xD8,
+        TD = 0xE0,
+        WD = 0xDC,
+        STCH = 0x54,
+
+        // Other
+        COMP = 0x28,
+        TIX = 0x2C
+    }
+
+    enum Register // This will be cast to int to be stored in the same fields as addresses.
+    {
+        A = 1,
+        B = 2,
+        F = 3,
+        L = 4,
+        S = 5,
+        T = 6,
+        X = 7
+    }
+
+    enum OperandType
+    {
+        //NotSet = 0, // should always be set.
+        Register = 1,
+        Address = 2,
+    }
+
+    class Operand
+    {
+        public Operand(OperandType type)
+        {
+            Type = type;
+            Value = null;
+            AddressingMode = AddressingMode.NotSet;
+        }
+        public OperandType Type
+        { get; private set; }
+        public int? Value
+        { get; set; }
+        public AddressingMode AddressingMode
+        { get; set; }
+    }
+
+    /// <summary>
+    /// Represents a line in a program which has not been assembled.
+    /// </summary>
     class Instruction
     {
-        public Operation Operation
-        { get; private set; }
-        public int Argument1
-        { get; private set; }
-        public int Argument2
-        { get; private set; }
-        public AddressingMode AddressingMode
+        public IReadOnlyList<Operand> Operands
         { get; private set; }
 
-        public Instruction(Operation op) // used for nullary operations
-        {
-            Operation = op;
-            AddressingMode = AddressingMode.NotSet;
-            switch (op)
-            {
-                default:
-                    throw new ArgumentException($"Operation {op.ToString()} cannot accept 0 arguments!");
-            }
-        }
+        public Mnemonic Mnemonic
+        { get; private set; }
 
-        public Instruction(Operation op, int arg1, AddressingMode mode) // used for unary operations
+        public Instruction(Mnemonic mnemonic)
         {
-            Operation = op;
-            AddressingMode = mode;
-            Argument1 = arg1;
-            switch (op)
+            Mnemonic = mnemonic;
+            switch (mnemonic)
             {
-                case Operation.ADD:
-                case Operation.SUB:
-                case Operation.MUL:
-                case Operation.DIV:
-                case Operation.LDA:
-                case Operation.STA:
+                case Mnemonic.LDA:
+                case Mnemonic.STA:
+                case Mnemonic.ADD:
+                    Operands = new List<Operand>() { new Operand(OperandType.Address) }.AsReadOnly();
                     break;
-
-                default:
-                    throw new ArgumentException($"Operation {op.ToString()} cannot accept 1 argument!");
-            }
-
-
-        }
-
-        public Instruction(Operation op, int arg1, int arg2, AddressingMode mode) // used for binary operations
-        {
-            Operation = op;
-            AddressingMode = mode;
-            Argument1 = arg1;
-            Argument2 = arg2;
-            switch (op)
-            {
-                default:
-                    throw new ArgumentException($"Operation {op.ToString()} cannot accept 2 arguments!");
-            }
-        }
-
-        public static bool TryParse(string str, out Instruction inst)
-        {
-            var tokens = SmartSplit(str);
-            if (!Enum.TryParse(tokens[0], true, out Operation op))
-            {
-                inst = null;
-                return false; // Unrecognized operation.
-            }
-            switch (op)
-            {
-                case Operation.LDA:
-                    if (tokens.Length != 2)
-                    {
-                        inst = null;
-                        return false;
-                    }
-
+                case Mnemonic.CLEAR:
+                    Operands = new List<Operand>() { new Operand(OperandType.Register) }.AsReadOnly();
                     break;
             }
-        }
-
-        /// <summary>
-        /// Parses a token like A+#5 into an address.
-        /// </summary>
-        /// <param name="str"></param>
-        /// <param name="baseAddress"></param>
-        /// <param name="offset"></param>
-        /// <param name="mode"></param>
-        /// <returns>True on success.</returns>
-        private static bool TryParseReference(string str, out int baseAddress, out int offset, out AddressingMode mode)
-        {
-            /* Supported formats:   [register]
-             *                      #[immediate]
-             *                      [register]+#[immediate]
-             *                      L+[register]
-             *                      L+#[immediate]
-             */
-            for (int i=0; i<str.Length; ++i)
-            {
-                
-            }
-        }
-
-        private static string[] SmartSplit(string str)
-        // Functions same as string.split(), except:
-        // Does not split what is surrounded by quotation marks
-        // Aware of \" escaped quotation marks.
-        // Only splits once on contiguous whitespace.
-        {
-            if (str.Length == 0)
-                return new string[0];
-            var ret = new List<string>();
-            var current = new StringBuilder();
-            bool inwhite = char.IsWhiteSpace(str[0]);
-            bool insideliteral = false;
-            for (int i = 0; i < str.Length; ++i)
-            {
-                char c = str[i];
-                if (insideliteral)
-                {
-                    if (c == '"' && (i > 0 || str[i - 1] != '\\'))
-                    {
-                        insideliteral = false;
-                    }
-                    else
-                    {
-                        //Debug.WriteLine("literal: " + current.ToString());
-                    }
-                    current.Append(c);
-                }
-                else
-                {
-                    if (c == '"' && (i == 0 || str[i - 1] != '\\'))
-                    {
-                        inwhite = false;
-                        insideliteral = true;
-                        current.Append(c);
-                        continue;
-                    }
-                    if (char.IsWhiteSpace(c))
-                    {
-                        if (!inwhite)
-                        {
-                            // This is a transition to white.
-                            //Debug.WriteLine("pushing " + current.ToString());
-                            ret.Add(current.ToString());
-                            current.Clear();
-                            inwhite = true;
-                        }
-                    }
-                    else
-                    {
-                        inwhite = false;
-                        current.Append(c);
-                        //Debug.WriteLine("cat name: " + current.ToString());
-                    }
-                }
-            }
-            if (!inwhite && current.Length > 0)
-            {
-                //Debug.WriteLine("pushing " + current.ToString());
-                ret.Add(current.ToString());
-            }
-
-            return ret.ToArray();
         }
     }
 }

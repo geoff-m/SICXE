@@ -34,48 +34,57 @@ namespace SICXE
         {
             foreach (Instruction inst in p)
             {
-                switch (inst.Operation)
+                Operand op1, op2;
+                int addr;
+                switch (inst.Mnemonic)
                 {
-                    case Operation.LDA:
+                    case Mnemonic.LDA:
                         // Load 3 bytes into A.
-                        regA = ReadWord(inst.Argument1, inst.AddressingMode);
+                        op1 = inst.Operands[0];
+                        addr = op1.Value.Value;
+                        regA = ReadWord(addr, op1.AddressingMode);
                         break;
-                    case Operation.ADD:
+                    case Mnemonic.ADD:
                         // Add argument to A.
-                        regA += ReadWord(inst.Argument1, inst.AddressingMode);
+                        op1 = inst.Operands[0];
+                        addr = op1.Value.Value;
+                        regA += ReadWord(addr, op1.AddressingMode);
                         break;
-                    case Operation.STA:
+                    case Mnemonic.STA:
                         // Store A in argument.
-                        WriteWord(regA, inst.Argument1, inst.AddressingMode);
+                        op1 = inst.Operands[0];
+                        WriteWord(regA, op1.Value.Value, op1.AddressingMode);
                         break;
                 }
             }
         }
 
-        private int DecodeAddress(int address, AddressingMode mode)
-        {
-            switch (mode)
-            {
-                case AddressingMode.Immediate:
-                    throw new ArgumentException("Addressing mode is immediate: address should not be decoded!");
-                case AddressingMode.Direct:
-                    return address;
-                case AddressingMode.Indirect:
-                    return address + (int)regX;
-                case AddressingMode.RelativeToBase:
-                    return address + (int)regB;
-                case AddressingMode.RelativeToPC:
-                    return address + ProgramCounter;
-                default:
-                    throw new ArgumentException("Illegal or unsupported addressing mode");
-            }
-        }
 
         private Word ReadWord(int address, AddressingMode mode)
         {
             if (mode == AddressingMode.Immediate)
                 return (Word)address;
             return Word.FromArray(memory, DecodeAddress(address, mode));
+        }
+
+        // Helper function for ReadWord and WriteWord.
+        private int DecodeAddress(int address, AddressingMode mode)
+        {
+            switch (mode)
+            {
+                case AddressingMode.Immediate:
+                    throw new ArgumentException("Addressing mode is immediate: address should not be decoded!");
+                case AddressingMode.Simple: // todo: In Machine, replace this with Direct. "Simple" should be disallowed here.
+                    return address;
+                case AddressingMode.Indirect:
+                    return address + (int)regX;
+                case AddressingMode.RelativeToBase:
+                    return address + (int)regB;
+                case AddressingMode.RelativeToProgramCounter:
+                    return address + ProgramCounter;
+                default:
+                    throw new ArgumentException("Illegal or unsupported addressing mode");
+            }
         }
 
         private void WriteWord(Word w, int address, AddressingMode mode)
@@ -102,7 +111,7 @@ namespace SICXE
             int stop = startAddress + count;
             for (int wordIdx = startAddress; wordIdx < stop; wordIdx += 12)
             {
-                Console.WriteLine("0x{0:X}: \t{1:00000} {2:00000} {3:00000} {4:00000}", wordIdx,
+                Console.WriteLine("0x{0:X}: \t{1,5} {2,5} {3,5} {4,5}", wordIdx,
                     (int)Word.FromArray(memory, wordIdx),
                     (int)Word.FromArray(memory, wordIdx + 3),
                     (int)Word.FromArray(memory, wordIdx + 6),

@@ -43,10 +43,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AddressingMode.cs" />
-    <Compile Include="Instruction.cs" />
+    <Compile Include="InstructionFormat.cs" />
     <Compile Include="Machine.cs" />
     <Compile Include="EntryPoint.cs" />
-    <Compile Include="Operation.cs" />
+    <Compile Include="Instruction.cs" />
+    <Compile Include="ProgramParser.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -54,7 +55,7 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="prog1.txt" />
+    <Content Include="bin\Debug\prog1.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
