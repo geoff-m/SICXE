@@ -7,7 +7,7 @@ namespace SICXE
     class Machine
     {
         public const int SIC_MEMORY_MAXIMUM = 0x8000; // 32K
-        public const int SICXE_MEMORY_MAXIMUM = 0x100000; // 1 M
+        public const int SICXE_MEMORY_MAXIMUM = 0x100000; // 1M
 
         public Machine(int memorySize = SICXE_MEMORY_MAXIMUM)
         {
@@ -32,26 +32,27 @@ namespace SICXE
         {
             foreach (Instruction inst in p)
             {
-                Operand op1, op2;
+                ++ProgramCounter;
+                Operand arg1, arg2;
                 int addr;
-                switch (inst.Mnemonic)
+                switch (inst.Operation)
                 {
-                    case Mnemonic.LDA:
+                    case Instruction.Mnemonic.LDA:
                         // Load 3 bytes into A.
-                        op1 = inst.Operands[0];
-                        addr = op1.Value.Value;
-                        regA = ReadWord(addr, op1.AddressingMode);
+                        arg1 = inst.Operands[0];
+                        addr = arg1.Value.Value;
+                        regA = ReadWord(addr, arg1.AddressingMode);
                         break;
-                    case Mnemonic.ADD:
+                    case Instruction.Mnemonic.ADD:
                         // Add argument to A.
-                        op1 = inst.Operands[0];
-                        addr = op1.Value.Value;
-                        regA += ReadWord(addr, op1.AddressingMode);
+                        arg1 = inst.Operands[0];
+                        addr = arg1.Value.Value;
+                        regA += ReadWord(addr, arg1.AddressingMode);
                         break;
-                    case Mnemonic.STA:
+                    case Instruction.Mnemonic.STA:
                         // Store A in argument.
-                        op1 = inst.Operands[0];
-                        WriteWord(regA, op1.Value.Value, op1.AddressingMode);
+                        arg1 = inst.Operands[0];
+                        WriteWord(regA, arg1.Value.Value, arg1.AddressingMode);
                         break;
                 }
             }
