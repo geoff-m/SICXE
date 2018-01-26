@@ -15,10 +15,17 @@ namespace SICXE
         }
 
         public int ProgramCounter
+        { get; private set; }
+
+        public enum Condition
         {
-            get;
-            private set;
+            LessThan = 1,
+            EqualTo = 2,
+            GreaterThan = 3,
         }
+
+        public Condition ConditionCode
+        { get; private set; }
 
         private byte[] memory;
 
@@ -30,8 +37,9 @@ namespace SICXE
         /// <param name="p">The SIC/XE program to be executed.</param>
         public void Execute(Program p)
         {
-            foreach (Instruction inst in p)
+            for (int pc = 0; pc < p.Count; ++pc)
             {
+                Instruction inst = p[pc];
                 Operand op1, op2;
                 int addr;
                 switch (inst.Mnemonic)
@@ -43,15 +51,42 @@ namespace SICXE
                         regA = ReadWord(addr, op1.AddressingMode);
                         break;
                     case Mnemonic.ADD:
-                        // Add argument to A.
+                        // Add operand to A.
                         op1 = inst.Operands[0];
                         addr = op1.Value.Value;
                         regA += ReadWord(addr, op1.AddressingMode);
                         break;
                     case Mnemonic.STA:
-                        // Store A in argument.
+                        // Store A in operand.
                         op1 = inst.Operands[0];
                         WriteWord(regA, op1.Value.Value, op1.AddressingMode);
+                        break;
+                    case Mnemonic.COMP:
+                        // Compare A and operand.
+                        op1 = inst.Operands[0];
+                        addr = op1.Value.Value;
+                        int comparand = (int)ReadWord(addr, op1.AddressingMode);
+                        int a = (int)regA;
+                        if (a < comparand)
+                        {
+                            ConditionCode = Condition.LessThan;
+                            break;
+                        }
+                        if (a > comparand)
+                        {
+                            ConditionCode = Condition.GreaterThan;
+                            break;
+                        }
+                        ConditionCode = Condition.EqualTo;
+                        break;
+                    case Mnemonic.JEQ:
+                        // Jump to operand if ConditionCode = EqualTo.
+                        if (ConditionCode == Condition.EqualTo)
+                        {
+                            op1 = inst.Operands[0];
+                            addr = op1.Value.Value;
+                            pc = (int)ReadWord(addr, op1.AddressingMode);
+                        }
                         break;
                 }
             }

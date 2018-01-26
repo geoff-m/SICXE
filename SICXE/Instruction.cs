@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
 
@@ -98,11 +99,14 @@ namespace SICXE
                 case Mnemonic.LDA:
                 case Mnemonic.STA:
                 case Mnemonic.ADD:
+                case Mnemonic.COMP:
                     Operands = new List<Operand>() { new Operand(OperandType.Address) }.AsReadOnly();
                     break;
                 case Mnemonic.CLEAR:
                     Operands = new List<Operand>() { new Operand(OperandType.Register) }.AsReadOnly();
                     break;
+                default:
+                    throw new NotSupportedException("That operation is not yet supported.");
             }
         }
     }
