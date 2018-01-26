@@ -22,7 +22,7 @@ namespace SICXE
 
         private byte[] memory;
 
-        Word regA, regL, regX, regB;
+        Word regA, regL, regX, regB, regT, regS;
 
         /// <summary>
         /// Executes the given program on this machine.
@@ -57,7 +57,6 @@ namespace SICXE
                 }
             }
         }
-
 
         private Word ReadWord(int address, AddressingMode mode)
         {
