@@ -23,36 +23,31 @@ namespace SICXE
                 var fileName = Path.GetFileName(path);
                 while (!read.EndOfStream)
                 {
-                    var line = read.ReadLine();
+                    var textLine = read.ReadLine();
                     ++lineCount;
 
                     // Strip comments.
-                    int commentStart = line.IndexOf(';');
+                    int commentStart = textLine.IndexOf('.');
                     if (commentStart > 0)
-                        line = line.Substring(0, commentStart);
-                    line = line.Trim();
-                    if (line.Length == 0)
+                        textLine = textLine.Substring(0, commentStart);
+                    textLine = textLine.Trim();
+                    if (textLine.Length == 0)
                         continue;
 
-                    // Parse this line as an instruction.
-                    var tokens = SmartSplit(line);
+                    // Parse this line.
+                    var tokens = textLine.SmartSplit();
+
                     if (tokens.Length == 0)
                         continue;
-                    Debug.Assert(!tokens.Any(s => s == null || s.Length == 0)); // i don't know if i completely trust that function...
-                    InstructionFormat format;
-                    AddressingMode mode;
-                    if (tokens[0][0] == '+')
-                    {
-                        // Use format 4 (see p. 59).
-                        format = InstructionFormat.Format4;
-                        tokens[0] = tokens[0].Substring(1);
-                    }
-                    if (!Enum.TryParse(tokens[0], true, out Mnemonic op)) // true to ignore case.
-                    {
-                        Console.WriteLine($"Error {++errorCount}: Unrecognized instruction \"{tokens[0]}\" on line {lineCount} in file {fileName}.");
-                        continue;
-                    }
-                    var inst = new Instruction(op);
+                    Debug.Assert(!tokens.Any(s => s == null || s.Length == 0));
+                    
+                    // Format of a line: {label} [operation] {operand} {comment, possibly multiple tokens}
+                    // To determine whether the first token is a label or an operation, we'll just try assuming it is an operation.
+                    // If that assumption fails (no operation can be parsed), we'll assume it's a label.
+                    // As a consequence, operation mnemonics will never be valid as labels.
+
+                    // todo: call Line.TryParse()
+
                     if (inst.Operands.Count == 0)
                     {
                         // This is a Format 1 instruction.
@@ -129,70 +124,6 @@ namespace SICXE
                 errorCount,
                 errorCount == 1 ? "error" : "errors");
             return prog;
-        }
-
-        private static string[] SmartSplit(string str)
-        // Functions same as string.split(), except:
-        // Does not split what is surrounded by quotation marks
-        // Aware of \" escaped quotation marks.
-        // Only splits once on contiguous whitespace.
-        {
-            if (str.Length == 0)
-                return new string[0];
-            var ret = new List<string>();
-            var current = new StringBuilder();
-            bool inwhite = char.IsWhiteSpace(str[0]);
-            bool insideliteral = false;
-            for (int i = 0; i < str.Length; ++i)
-            {
-                char c = str[i];
-                if (insideliteral)
-                {
-                    if (c == '"' && (i > 0 || str[i - 1] != '\\'))
-                    {
-                        insideliteral = false;
-                    }
-                    else
-                    {
-                        //Debug.WriteLine("literal: " + current.ToString());
-                    }
-                    current.Append(c);
-                }
-                else
-                {
-                    if (c == '"' && (i == 0 || str[i - 1] != '\\'))
-                    {
-                        inwhite = false;
-                        insideliteral = true;
-                        current.Append(c);
-                        continue;
-                    }
-                    if (char.IsWhiteSpace(c))
-                    {
-                        if (!inwhite)
-                        {
-                            // This is a transition to white.
-                            //Debug.WriteLine("pushing " + current.ToString());
-                            ret.Add(current.ToString());
-                            current.Clear();
-                            inwhite = true;
-                        }
-                    }
-                    else
-                    {
-                        inwhite = false;
-                        current.Append(c);
-                        //Debug.WriteLine("cat name: " + current.ToString());
-                    }
-                }
-            }
-            if (!inwhite && current.Length > 0)
-            {
-                //Debug.WriteLine("pushing " + current.ToString());
-                ret.Add(current.ToString());
-            }
-
-            return ret.ToArray();
         }
     }
 }

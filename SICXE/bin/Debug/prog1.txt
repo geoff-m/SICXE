@@ -1,5 +1,8 @@
-﻿
-LDA #1337	; A <- 1337
-STA 0		; mem[0] <- A
-ADD #3		; A += 3
-STA 5		; mem[5] <- A.0
+﻿. this is a comment
+. below is a meaningless blank line
+
+LDA #1337	A <- 1337
+STA 0		mem[0] <- A
+ADD #3		A += 3
+STA 5		mem[5] <- A.0
+ADD #10		this is a line-ending comment

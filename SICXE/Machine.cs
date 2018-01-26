@@ -7,7 +7,7 @@ namespace SICXE
     class Machine
     {
         public const int SIC_MEMORY_MAXIMUM = 0x8000; // 32K
-        public const int SICXE_MEMORY_MAXIMUM = 0x100000; // 1 M
+        public const int SICXE_MEMORY_MAXIMUM = 0x100000; // 1M
 
         public Machine(int memorySize = SICXE_MEMORY_MAXIMUM)
         {
@@ -15,17 +15,10 @@ namespace SICXE
         }
 
         public int ProgramCounter
-        { get; private set; }
-
-        public enum Condition
         {
-            LessThan = 1,
-            EqualTo = 2,
-            GreaterThan = 3,
+            get;
+            private set;
         }
-
-        public Condition ConditionCode
-        { get; private set; }
 
         private byte[] memory;
 
@@ -37,56 +30,29 @@ namespace SICXE
         /// <param name="p">The SIC/XE program to be executed.</param>
         public void Execute(Program p)
         {
-            for (int pc = 0; pc < p.Count; ++pc)
+            foreach (Instruction inst in p)
             {
-                Instruction inst = p[pc];
-                Operand op1, op2;
+                ++ProgramCounter;
+                Operand arg1, arg2;
                 int addr;
-                switch (inst.Mnemonic)
+                switch (inst.Operation)
                 {
-                    case Mnemonic.LDA:
+                    case Instruction.Mnemonic.LDA:
                         // Load 3 bytes into A.
-                        op1 = inst.Operands[0];
-                        addr = op1.Value.Value;
-                        regA = ReadWord(addr, op1.AddressingMode);
+                        arg1 = inst.Operands[0];
+                        addr = arg1.Value.Value;
+                        regA = ReadWord(addr, arg1.AddressingMode);
                         break;
-                    case Mnemonic.ADD:
-                        // Add operand to A.
-                        op1 = inst.Operands[0];
-                        addr = op1.Value.Value;
-                        regA += ReadWord(addr, op1.AddressingMode);
+                    case Instruction.Mnemonic.ADD:
+                        // Add argument to A.
+                        arg1 = inst.Operands[0];
+                        addr = arg1.Value.Value;
+                        regA += ReadWord(addr, arg1.AddressingMode);
                         break;
-                    case Mnemonic.STA:
-                        // Store A in operand.
-                        op1 = inst.Operands[0];
-                        WriteWord(regA, op1.Value.Value, op1.AddressingMode);
-                        break;
-                    case Mnemonic.COMP:
-                        // Compare A and operand.
-                        op1 = inst.Operands[0];
-                        addr = op1.Value.Value;
-                        int comparand = (int)ReadWord(addr, op1.AddressingMode);
-                        int a = (int)regA;
-                        if (a < comparand)
-                        {
-                            ConditionCode = Condition.LessThan;
-                            break;
-                        }
-                        if (a > comparand)
-                        {
-                            ConditionCode = Condition.GreaterThan;
-                            break;
-                        }
-                        ConditionCode = Condition.EqualTo;
-                        break;
-                    case Mnemonic.JEQ:
-                        // Jump to operand if ConditionCode = EqualTo.
-                        if (ConditionCode == Condition.EqualTo)
-                        {
-                            op1 = inst.Operands[0];
-                            addr = op1.Value.Value;
-                            pc = (int)ReadWord(addr, op1.AddressingMode);
-                        }
+                    case Instruction.Mnemonic.STA:
+                        // Store A in argument.
+                        arg1 = inst.Operands[0];
+                        WriteWord(regA, arg1.Value.Value, arg1.AddressingMode);
                         break;
                 }
             }

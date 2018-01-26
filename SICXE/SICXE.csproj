@@ -43,13 +43,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AddressingMode.cs" />
+    <Compile Include="Directive.cs" />
     <Compile Include="InstructionFormat.cs" />
+    <Compile Include="Line.cs" />
     <Compile Include="Machine.cs" />
     <Compile Include="EntryPoint.cs" />
     <Compile Include="Instruction.cs" />
     <Compile Include="ProgramParser.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="StringExtensions.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

@@ -8,69 +8,69 @@ namespace SICXE
     /// <summary>
     /// Represents a SIC/XE program that has not been assembled.
     /// </summary>
-    class Program : IList<Instruction>
+    class Program : IList<Line>
     {
         public Program()
         {
-            prog = new List<Instruction>();
+            prog = new List<Line>();
         }
 
-        List<Instruction> prog;
+        List<Line> prog;
 
-        public int Count => ((IList<Instruction>)prog).Count;
+        public int Count => ((IList<Line>)prog).Count;
 
-        public bool IsReadOnly => ((IList<Instruction>)prog).IsReadOnly;
+        public bool IsReadOnly => ((IList<Line>)prog).IsReadOnly;
 
-        public Instruction this[int index] { get => ((IList<Instruction>)prog)[index]; set => ((IList<Instruction>)prog)[index] = value; }
+        public Line this[int index] { get => ((IList<Line>)prog)[index]; set => ((IList<Line>)prog)[index] = value; }
 
-        public int IndexOf(Instruction item)
+        public int IndexOf(Line item)
         {
-            return ((IList<Instruction>)prog).IndexOf(item);
+            return ((IList<Line>)prog).IndexOf(item);
         }
 
-        public void Insert(int index, Instruction item)
+        public void Insert(int index, Line item)
         {
-            ((IList<Instruction>)prog).Insert(index, item);
+            ((IList<Line>)prog).Insert(index, item);
         }
 
         public void RemoveAt(int index)
         {
-            ((IList<Instruction>)prog).RemoveAt(index);
+            ((IList<Line>)prog).RemoveAt(index);
         }
 
-        public void Add(Instruction item)
+        public void Add(Line item)
         {
-            ((IList<Instruction>)prog).Add(item);
+            ((IList<Line>)prog).Add(item);
         }
 
         public void Clear()
         {
-            ((IList<Instruction>)prog).Clear();
+            ((IList<Line>)prog).Clear();
         }
 
-        public bool Contains(Instruction item)
+        public bool Contains(Line item)
         {
-            return ((IList<Instruction>)prog).Contains(item);
+            return ((IList<Line>)prog).Contains(item);
         }
 
-        public void CopyTo(Instruction[] array, int arrayIndex)
+        public void CopyTo(Line[] array, int arrayIndex)
         {
-            ((IList<Instruction>)prog).CopyTo(array, arrayIndex);
+            ((IList<Line>)prog).CopyTo(array, arrayIndex);
         }
 
-        public bool Remove(Instruction item)
+        public bool Remove(Line item)
         {
-            return ((IList<Instruction>)prog).Remove(item);
+            return ((IList<Line>)prog).Remove(item);
         }
 
-        public IEnumerator<Instruction> GetEnumerator()
+        public IEnumerator<Line> GetEnumerator()
         {
-            return ((IList<Instruction>)prog).GetEnumerator();
+            return ((IList<Line>)prog).GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return ((IList<Instruction>)prog).GetEnumerator();
+            return ((IList<Line>)prog).GetEnumerator();
         }
     }
 }
