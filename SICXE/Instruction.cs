@@ -1,11 +1,9 @@
 ﻿using System;
-using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
 
 namespace SICXE
 {
-
     enum Register // This will be cast to int to be stored in the same fields as addresses.
     {
         A = 1,
@@ -19,9 +17,9 @@ namespace SICXE
 
     enum OperandType
     {
-        //NotSet = 0, // should always be set.
         Register = 1,
         Address = 2,
+        Device = 4
     }
 
     class Operand
@@ -34,10 +32,50 @@ namespace SICXE
         }
         public OperandType Type
         { get; private set; }
-        public int? Value
-        { get; set; }
         public AddressingMode AddressingMode
         { get; set; }
+        public int? Value
+        { get; set; }
+
+        /// <summary>
+        /// Gets or sets a string that acts as a placeholder for a real value. For help in assembly.
+        /// </summary>
+        public string Symbol
+        { get; set; }
+
+        public override string ToString()
+        {
+            string prefix;
+            switch (AddressingMode)
+            {
+                case AddressingMode.Immediate:
+                    prefix = "#";
+                    break;
+                case AddressingMode.Indirect:
+                    prefix = "@";
+                    break;
+                default:
+                    prefix = "";
+                    break;
+            }
+            bool hasSymbol = Symbol != null;
+            bool hasValue = Value != null;
+            if (hasSymbol)
+            {
+                if (hasValue)
+                {
+                    return $"{prefix}{Symbol}({Value})";
+                }
+                return $"{prefix}{Symbol}";
+
+            }
+            if (hasValue)
+            {
+                return $"{prefix}{Value}";
+            }
+            return $"{prefix} ????";
+        }
+
     }
 
     /// <summary>
@@ -117,7 +155,7 @@ namespace SICXE
                 case Mnemonic.STA:
                 case Mnemonic.ADD:
                 case Mnemonic.COMP:
-                    Operands = new List<Operand>() { new Operand(OperandType.Address) }.AsReadOnly();
+                    Operands = new List<Operand>() { new Operand(OperandType.Address | OperandType.Register) }.AsReadOnly();
                     break;
                 case Mnemonic.CLEAR:
                     Operands = new List<Operand>() { new Operand(OperandType.Register) }.AsReadOnly();
@@ -172,15 +210,70 @@ namespace SICXE
                 if (tokens.Length - 1 != operandCount)
                 {
                     Debug.WriteLine($"Warning: Operation {mnemonic.ToString()} takes {operandCount} operands but {tokens.Length - 1} were given.");
-                    // This isn't a showstopper-- we just ignore extra tokens, or leave operands null.
+                    // In this method, this isn't a showstopper-- we just ignore extra tokens, or leave operands null if there aren't enough.
                 }
 
                 // Copy in all the operands.
-                for (int argIdx = 1; argIdx < operandCount; ++argIdx)
+                for (int argIdx = 1; argIdx < tokens.Length && argIdx <= operandCount; ++argIdx)
                 {
-                    
-                }
+                    var operand = ret.Operands[argIdx - 1];
+                    var token = tokens[argIdx];
+                    // Operand string may be a number, a register or device, or a symbol.
+                    // Attempt to parse this operand in all possible ways until we succeed.
+                    foreach (OperandType operandType in Enum.GetValues(typeof(OperandType)))
+                    {
+                        bool success = false;
+                        switch (operandType)
+                        {
 
+                            case OperandType.Register:
+                                if (Enum.TryParse(token, true, out Register reg))
+                                {
+                                    operand.Value = (int)reg; // Casting Register to int.
+                                    success = true;
+                                }
+                                break;
+
+                            case OperandType.Device:
+                                // todo: support devices.
+                                // create enum for devices that maps to same type as address (int).
+                                // parse as device.
+                                break;
+
+                            case OperandType.Address:
+                                switch (token[0])
+                                {
+                                    case '#':
+                                        operand.AddressingMode = AddressingMode.Immediate;
+                                        token = token.Substring(1);
+                                        break;
+                                    case '@':
+                                        operand.AddressingMode = AddressingMode.Indirect;
+                                        token = token.Substring(1);
+                                        break;
+                                    // Todo: handle any other prefixes...
+                                    default:
+                                        operand.AddressingMode = AddressingMode.Simple;
+                                        break;
+                                }
+
+                                if (uint.TryParse(token, out uint addr))
+                                {
+                                    operand.Value = (int)addr;
+                                }
+                                else
+                                {
+                                    operand.Symbol = token;
+                                }
+                                break;
+                        }
+                        if (success)
+                        {
+                            Debug.WriteLine($"Parsed {token} as {operandType.ToString()}.");
+                            break;
+                        }
+                    }
+                } // for each operand.
 
                 result = ret;
                 return true;
@@ -188,6 +281,15 @@ namespace SICXE
 
             result = null;
             return false;
+        }
+
+        public override string ToString()
+        {
+            if (Label != null)
+            {
+                return $"{Label}: {Operation.ToString()} {string.Join(",", Operands)}";
+            }
+            return $"{Operation.ToString()} {string.Join(",", Operands)}";
         }
     }
 }
