@@ -49,7 +49,6 @@
     <Compile Include="Machine.cs" />
     <Compile Include="EntryPoint.cs" />
     <Compile Include="Instruction.cs" />
-    <Compile Include="ProgramParser.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StringExtensions.cs" />

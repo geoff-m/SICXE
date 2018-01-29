@@ -10,8 +10,7 @@ namespace SICXE
     {
         static void Main(string[] args)
         {
-            var parser = new ProgramParser();
-            var prog = parser.ParseProgram("prog1.txt");
+            var prog = Program.Parse("prog1.txt");
 
             var mymachine = new Machine();
 
