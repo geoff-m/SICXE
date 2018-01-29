@@ -117,6 +117,17 @@ namespace SICXE
 
                     if (Line.TryParse(textLine, out Line line))
                     {
+                        // For now, just set everything that isn't immediate to simple.
+                        if (line is Instruction inst)
+                        {
+                            foreach (var arg in inst.Operands)
+                            {
+                                if (arg.AddressingMode == AddressingMode.NotSet)
+                                {
+                                    arg.AddressingMode = AddressingMode.Simple;
+                                }
+                            }
+                        }
                         prog.Add(line);
                     }
                     else
