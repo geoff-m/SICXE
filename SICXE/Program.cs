@@ -141,7 +141,7 @@ namespace SICXE
                 if (read != null)
                     read.Dispose();
             }
-            Console.WriteLine("Parse completed with {0} {1}.",
+            Console.WriteLine("Parse completed with {0} {1}.\n",
                 errorCount,
                 errorCount == 1 ? "error" : "errors");
             return prog;

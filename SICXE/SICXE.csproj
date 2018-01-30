@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AddressingMode.cs" />
+    <Compile Include="Assembler.cs" />
     <Compile Include="AssemblerDirective.cs" />
     <Compile Include="InstructionFormat.cs" />
     <Compile Include="Line.cs" />

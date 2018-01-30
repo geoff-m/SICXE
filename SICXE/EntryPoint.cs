@@ -10,13 +10,19 @@ namespace SICXE
     {
         static void Main(string[] args)
         {
-            var prog = Program.Parse("prog1.txt");
+            var myProgram = Program.Parse("prog1.txt");
 
-            var mymachine = new Machine();
+            var myMachine = new Machine();
 
-            mymachine.Execute(prog);
+            myMachine.Execute(myProgram);
 
-            mymachine.DumpWords(0, 20);
+            myMachine.PrintWords(0, 20);
+
+            var myBinary = Assembler.Assemble(myProgram);
+            myMachine.DMAWrite(myBinary, 0); // Copy the program onto the machine at address 0.
+            myMachine.Run(0); // Run the machine from address 0.
+
+            
 
         }
     }
