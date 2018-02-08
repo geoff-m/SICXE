@@ -2,14 +2,20 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace SICXE
 {
     class Assembler
     {
-        public static Machine.Word[] Assemble(Program prog)
+        public static Word[] Assemble(Program prog)
         {
+            var ret = new List<Word>();
+
+            foreach (AssemblerDirective dir in prog.Where(l => l is AssemblerDirective))
+            {
+
+            }
+
             return null;
         }
     }
