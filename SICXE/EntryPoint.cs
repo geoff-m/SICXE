@@ -12,12 +12,10 @@ namespace SICXE
         {
             var myProgram = Program.Parse("prog1.txt");
 
-            var myMachine = new sicsim.Machine();
+            var myMachine = new vsic.Machine();
 
             var myBinary = Assembler.Assemble(myProgram);
 
-
-            
 
         }
     }
