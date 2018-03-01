@@ -4,15 +4,15 @@ using System.Collections.Generic;
 
 namespace SICXE
 {
-    enum Register // This will be cast to int to be stored in the same fields as addresses.
+    enum Register : byte // This will be cast to int to be stored in the same fields as addresses.
     {
-        A = 1,
-        B = 2,
-        F = 3,
-        L = 4,
-        S = 5,
-        T = 6,
-        X = 7
+        A = 0,
+        X = 1,
+        L = 2,
+        B = 3,
+        S = 4,
+        T = 5,
+        F = 6
     }
 
     enum OperandType
@@ -87,9 +87,13 @@ namespace SICXE
         {
             // Arithmetic
             ADD = 0x18,
+            ADDR = 0x90,
             SUB = 0x1C,
+            SUBR = 0x94,
             MUL = 0x20,
+            MULR = 0x98,
             DIV = 0x24,
+            DIVR = 0x9C,
 
             // Bitwise
             AND = 0x40,
@@ -107,21 +111,32 @@ namespace SICXE
 
             // Registers
             LDA = 0x00,
+            LDB = 0x68,
             LDL = 0x08,
+            LDS = 0x6C,
+            LDT = 0x74,
+            LDX = 0x04,
             STA = 0x0C,
+            STB = 0x78,
             STL = 0x14,
+            STS = 0X7C,
+            STT = 0x84,
             STX = 0x10,
             CLEAR = 0xB4,
+            RMO = 0xAC,
+            LDCH = 0x50,
+            STCH = 0x54,
 
             // I/O
             RD = 0xD8,
             TD = 0xE0,
             WD = 0xDC,
-            STCH = 0x54,
 
             // Other
+            COMPR = 0xA0,
             COMP = 0x28,
-            TIX = 0x2C
+            TIX = 0x2C,
+            TIXR = 0xB8
         }
 
         public enum Flag : int
@@ -152,13 +167,24 @@ namespace SICXE
             switch (mnemonic)
             {
                 case Mnemonic.LDA:
+                case Mnemonic.LDX:
+                case Mnemonic.LDS:
                 case Mnemonic.STA:
+                case Mnemonic.STX:
+                case Mnemonic.STS:
                 case Mnemonic.ADD:
+                case Mnemonic.MUL:
                 case Mnemonic.COMP:
-                    Operands = new List<Operand>() { new Operand(OperandType.Address | OperandType.Register) }.AsReadOnly();
+                case Mnemonic.JLT:
+                case Mnemonic.TIX:
+                    Operands = new List<Operand>() { new Operand(OperandType.Address) }.AsReadOnly();
                     break;
                 case Mnemonic.CLEAR:
                     Operands = new List<Operand>() { new Operand(OperandType.Register) }.AsReadOnly();
+
+                    break;
+                case Mnemonic.RMO:
+                    Operands = new List<Operand>() { new Operand(OperandType.Register), new Operand(OperandType.Register) }.AsReadOnly();
                     break;
                 default:
                     throw new NotSupportedException("That operation is not yet supported.");
@@ -189,7 +215,6 @@ namespace SICXE
                     fmt = InstructionFormat.Format4;
                     removePrefix = true;
                     break;
-
                     // todo: any other cases...
             }
             if (removePrefix)
@@ -198,6 +223,26 @@ namespace SICXE
             }
             if (Enum.TryParse(mnemonic, true, out Mnemonic m)) // true to ignore case.
             {
+                switch (m)
+                {
+                    // todo: set format 1 for format 1 instructions here
+
+                    // Mark format for Format 2 instructions.
+                    case Mnemonic.ADDR:
+                    case Mnemonic.CLEAR:
+                    case Mnemonic.COMPR:
+                    case Mnemonic.DIVR:
+                    case Mnemonic.MULR:
+                    case Mnemonic.SUBR:
+                    case Mnemonic.TIXR:
+                    case Mnemonic.RMO:
+                        fmt = InstructionFormat.Format2;
+                        break;
+                }
+
+                if (m == Mnemonic.RMO)
+                    Debugger.Break();
+
                 var ret = new Instruction(m);
 
                 if (sic)
@@ -205,12 +250,35 @@ namespace SICXE
 
                 ret.Format = fmt;
 
+                if (tokens.Length >= 2)
+                {
+                    var args = tokens[1];
+                    int commaIdx = args.IndexOf(',');
+                    if (commaIdx >= 0)
+                    {
+                        var afterComma = args.Substring(commaIdx+1);
+                        if (afterComma == "x" && fmt != InstructionFormat.Format2)
+                        {
+                            // this is indexed addressing.
+                        }
+                        else
+                        {
+                            var splitOnComma = new string[tokens.Length + 1];
+                            splitOnComma[0] = tokens[0];
+                            splitOnComma[1] = args.Substring(0, commaIdx);
+                            splitOnComma[2] = args.Substring(commaIdx + 1);
+                            Array.Copy(tokens, splitOnComma, tokens.Length - 2);
+                            tokens = splitOnComma;
+                        }
+                    }
+                }
 
                 int operandCount = ret.Operands.Count;
                 if (tokens.Length - 1 != operandCount)
                 {
                     Debug.WriteLine($"Warning: Operation {mnemonic.ToString()} takes {operandCount} operands but {tokens.Length - 1} were given.");
                     // In this method, this isn't a showstopper-- we just ignore extra tokens, or leave operands null if there aren't enough.
+                    // Could be comment.
                 }
 
                 // Copy in all the operands.
@@ -225,7 +293,6 @@ namespace SICXE
                         bool success = false;
                         switch (operandType)
                         {
-
                             case OperandType.Register:
                                 if (Enum.TryParse(token, true, out Register reg))
                                 {
@@ -251,7 +318,7 @@ namespace SICXE
                                         operand.AddressingMode = AddressingMode.Indirect;
                                         token = token.Substring(1);
                                         break;
-                                    // Todo: handle any other prefixes...
+                                    // Todo: handle any other operand prefixes...
                                     default:
                                         operand.AddressingMode = AddressingMode.Simple;
                                         break;

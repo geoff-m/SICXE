@@ -10,9 +10,14 @@ namespace SICXE
     {
         static void Main(string[] args)
         {
-            var myProgram = Program.Parse("prog1.txt");
+            var myProgram = Program.Parse(@"C:\Users\geoff\Google Drive\Intro to System Software\asms\copy-tix-add.asm");
 
-            var myMachine = new vsic.Machine();
+            for (int i = 0; i < myProgram.Count; ++i)
+            {
+                Console.WriteLine($"{myProgram[i].ToString()}");
+            }
+
+            //var myMachine = new vsic.Machine();
 
             var myBinary = Assembler.Assemble(myProgram);
 

@@ -101,19 +101,20 @@ namespace SICXE
                         textLine = textLine.Substring(0, commentStart);
                     textLine = textLine.Trim();
                     if (textLine.Length == 0)
-                        continue;
+                        continue; // Ignore line because it is empty.
+                    if (textLine[0] == '.')
+                        continue; // Ignore line because it is a comment.
 
                     // Parse this line.
-                    var tokens = textLine.SmartSplit();
 
+                    var tokens = textLine.SmartSplit();
                     if (tokens.Length == 0)
                         continue;
                     Debug.Assert(!tokens.Any(s => s == null || s.Length == 0));
 
                     // Format of a line: {label} [operation] {operand} {comment, possibly multiple tokens}
-                    // To determine whether the first token is a label or an operation, we'll just try assuming it is an operation.
-                    // If that assumption fails (no operation can be parsed), we'll assume it's a label.
-                    // As a consequence, operation mnemonics will never be valid as labels.
+                    // Whitespace before operation is required.
+                    // Whitespace before oprenand is required, if operand is present.
 
                     if (Line.TryParse(textLine, out Line line))
                     {
@@ -129,6 +130,7 @@ namespace SICXE
                             }
                         }
                         prog.Add(line);
+                        Debug.WriteLine(line.ToString());
                     }
                     else
                     {

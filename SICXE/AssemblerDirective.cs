@@ -11,7 +11,11 @@ namespace SICXE
         {
             EQU = 1,
             RESW = 2,
-            BYTE = 3
+            BYTE = 3,
+            WORD = 4,
+
+            START = 10,
+            END = 11
             // etc.
         }
 
@@ -34,7 +38,7 @@ namespace SICXE
         /// <returns>A Boolean value indicating whether the parse was successful.</returns>
         public static bool TryParse(string[] tokens, out AssemblerDirective result)
         {
-            if (tokens.Length == 0 || tokens.Length > 2)
+            if (tokens.Length == 0)
             {
                 result = null;
                 return false;
@@ -51,9 +55,16 @@ namespace SICXE
                 case Mnemonic.BYTE:
                 case Mnemonic.RESW:
                 case Mnemonic.EQU:
+                case Mnemonic.START:
+                case Mnemonic.WORD:
+                case Mnemonic.END:
                     result.Value = tokens[1];
                     break;
-                    // todo: parse arguments properly for each directive.
+                // todo: parse arguments properly for each directive.
+
+                default:
+                    throw new NotImplementedException($"Assembler directive \"{tokens[0]}\" is not supported!");
+
             }
             return true;
         }
@@ -64,7 +75,7 @@ namespace SICXE
             {
                 return $"{Label}: {Directive.ToString()} {Value}";
             }
-            return $"{Label}: {Directive.ToString()} {Value}";
+            return $"{Directive.ToString()} {Value}";
         }
     }
 }
