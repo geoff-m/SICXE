@@ -10,7 +10,9 @@ namespace SICXE
     {
         static void Main(string[] args)
         {
-            var myProgram = Program.Parse(@"C:\Users\geoff\Google Drive\Intro to System Software\asms\copy-tix-add.asm");
+            var myProgram = Program.Parse(@"E:\Google Drive\Intro to System Software\asms\small.txt");
+
+            //var myProgram = Program.Parse(@"C:\Users\geoff\Google Drive\Intro to System Software\asms\copy-tix-add.asm");
 
             for (int i = 0; i < myProgram.Count; ++i)
             {

@@ -173,6 +173,7 @@ namespace SICXE
                 case Mnemonic.STX:
                 case Mnemonic.STS:
                 case Mnemonic.ADD:
+                case Mnemonic.SUB:
                 case Mnemonic.MUL:
                 case Mnemonic.COMP:
                 case Mnemonic.JLT:
@@ -185,6 +186,10 @@ namespace SICXE
                     break;
                 case Mnemonic.RMO:
                     Operands = new List<Operand>() { new Operand(OperandType.Register), new Operand(OperandType.Register) }.AsReadOnly();
+                    break;
+
+                case Mnemonic.RSUB:
+                    Operands = new List<Operand>();
                     break;
                 default:
                     throw new NotSupportedException("That operation is not yet supported.");
@@ -240,8 +245,8 @@ namespace SICXE
                         break;
                 }
 
-                if (m == Mnemonic.RMO)
-                    Debugger.Break();
+                //if (m == Mnemonic.RMO)
+                //    Debugger.Break();
 
                 var ret = new Instruction(m);
 
@@ -256,12 +261,8 @@ namespace SICXE
                     int commaIdx = args.IndexOf(',');
                     if (commaIdx >= 0)
                     {
-                        var afterComma = args.Substring(commaIdx+1);
-                        if (afterComma == "x" && fmt != InstructionFormat.Format2)
-                        {
-                            // this is indexed addressing.
-                        }
-                        else
+                        var afterComma = args.Substring(commaIdx + 1);
+                        if (fmt == InstructionFormat.Format2)
                         {
                             var splitOnComma = new string[tokens.Length + 1];
                             splitOnComma[0] = tokens[0];
@@ -269,6 +270,15 @@ namespace SICXE
                             splitOnComma[2] = args.Substring(commaIdx + 1);
                             Array.Copy(tokens, splitOnComma, tokens.Length - 2);
                             tokens = splitOnComma;
+                        }
+                        else
+                        {
+                            if (afterComma != "x")
+                            {
+                                Debug.WriteLine($"Unexpected ',' in {string.Join(" ", tokens)}");
+                                result = null;
+                                return false;
+                            }
                         }
                     }
                 }
@@ -286,6 +296,7 @@ namespace SICXE
                 {
                     var operand = ret.Operands[argIdx - 1];
                     var token = tokens[argIdx];
+                    //todo: switch to something like this instead if this foreach ...if (operand.Type == OperandType.)
                     // Operand string may be a number, a register or device, or a symbol.
                     // Attempt to parse this operand in all possible ways until we succeed.
                     foreach (OperandType operandType in Enum.GetValues(typeof(OperandType)))
