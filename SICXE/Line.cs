@@ -43,6 +43,7 @@ namespace SICXE
             return false;
         }
 
+
         private static bool TryParseWithoutLabel(string[] tokens, out Line result)
         {
             // Attempt to parse as instruction.

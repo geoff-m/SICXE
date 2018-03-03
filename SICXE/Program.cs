@@ -79,7 +79,7 @@ namespace SICXE
         }
         #endregion
 
-        public static Program Parse(string path)
+        public static bool TryParse(string path, out Program result)
         {
             StreamReader read = null;
             var prog = new Program();
@@ -106,7 +106,6 @@ namespace SICXE
                         continue; // Ignore line because it is a comment.
 
                     // Parse this line.
-
                     var tokens = textLine.SmartSplit();
                     if (tokens.Length == 0)
                         continue;
@@ -118,17 +117,6 @@ namespace SICXE
 
                     if (Line.TryParse(textLine, out Line line))
                     {
-                        // For now, just set everything that isn't immediate to simple.
-                        if (line is Instruction inst)
-                        {
-                            foreach (var arg in inst.Operands)
-                            {
-                                if (arg.AddressingMode == AddressingMode.NotSet)
-                                {
-                                    arg.AddressingMode = AddressingMode.Simple;
-                                }
-                            }
-                        }
                         prog.Add(line);
                         Debug.WriteLine(line.ToString());
                     }
@@ -143,10 +131,19 @@ namespace SICXE
                 if (read != null)
                     read.Dispose();
             }
-            Console.WriteLine("Parse completed with {0} {1}.\n",
+            Console.WriteLine("\nParse completed with {0} {1}.\n",
                 errorCount,
                 errorCount == 1 ? "error" : "errors");
-            return prog;
+            if (errorCount == 0)
+            {
+                result = prog;
+                return true;
+            }
+            else
+            {
+                result = null;
+                return false;
+            }
         }
     }
 }

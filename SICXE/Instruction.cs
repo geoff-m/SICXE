@@ -268,7 +268,7 @@ namespace SICXE
                             splitOnComma[0] = tokens[0];
                             splitOnComma[1] = args.Substring(0, commaIdx);
                             splitOnComma[2] = args.Substring(commaIdx + 1);
-                            Array.Copy(tokens, splitOnComma, tokens.Length - 2);
+                            Array.Copy(tokens, 2, splitOnComma, 3, tokens.Length - 2);
                             tokens = splitOnComma;
                         }
                         else
@@ -284,12 +284,12 @@ namespace SICXE
                 }
 
                 int operandCount = ret.Operands.Count;
-                if (tokens.Length - 1 != operandCount)
-                {
-                    Debug.WriteLine($"Warning: Operation {mnemonic.ToString()} takes {operandCount} operands but {tokens.Length - 1} were given.");
-                    // In this method, this isn't a showstopper-- we just ignore extra tokens, or leave operands null if there aren't enough.
-                    // Could be comment.
-                }
+                //if (tokens.Length - 1 != operandCount)  Extra tokens are usually just comments, so this warning is pretty useless.
+                //{
+                //    Debug.WriteLine($"Warning: Operation {mnemonic.ToString()} takes {operandCount} operands but {tokens.Length - 1} were given.");
+                //    // In this method, this isn't a showstopper-- we just ignore extra tokens, or leave operands null if there aren't enough.
+                //    // Could be comment.
+                //}
 
                 // Copy in all the operands.
                 for (int argIdx = 1; argIdx < tokens.Length && argIdx <= operandCount; ++argIdx)
@@ -297,60 +297,55 @@ namespace SICXE
                     var operand = ret.Operands[argIdx - 1];
                     var token = tokens[argIdx];
                     //todo: switch to something like this instead if this foreach ...if (operand.Type == OperandType.)
-                    // Operand string may be a number, a register or device, or a symbol.
-                    // Attempt to parse this operand in all possible ways until we succeed.
-                    foreach (OperandType operandType in Enum.GetValues(typeof(OperandType)))
+
+                    // Parse the operand as the type we expect.
+                    switch (operand.Type)
                     {
-                        bool success = false;
-                        switch (operandType)
-                        {
-                            case OperandType.Register:
-                                if (Enum.TryParse(token, true, out Register reg))
-                                {
-                                    operand.Value = (int)reg; // Casting Register to int.
-                                    success = true;
-                                }
-                                break;
+                        case OperandType.Device:
+                        case OperandType.Address:
+                            // Acceptable formats:
+                            //  Number.
+                            //  Number with either @ or # prefix.
+                            //  Symbol (any alphanumeric string).
+                            switch (token[0])
+                            {
+                                case '@':
+                                    operand.AddressingMode = AddressingMode.Indirect;
+                                    token = token.Substring(1);
+                                    break;
+                                case '#':
+                                    operand.AddressingMode = AddressingMode.Immediate;
+                                    token = token.Substring(1);
+                                    break;
+                            }
 
-                            case OperandType.Device:
-                                // todo: support devices.
-                                // create enum for devices that maps to same type as address (int).
-                                // parse as device.
-                                break;
-
-                            case OperandType.Address:
-                                switch (token[0])
-                                {
-                                    case '#':
-                                        operand.AddressingMode = AddressingMode.Immediate;
-                                        token = token.Substring(1);
-                                        break;
-                                    case '@':
-                                        operand.AddressingMode = AddressingMode.Indirect;
-                                        token = token.Substring(1);
-                                        break;
-                                    // Todo: handle any other operand prefixes...
-                                    default:
-                                        operand.AddressingMode = AddressingMode.Simple;
-                                        break;
-                                }
-
-                                if (uint.TryParse(token, out uint addr))
-                                {
-                                    operand.Value = (int)addr;
-                                }
-                                else
-                                {
-                                    operand.Symbol = token;
-                                }
-                                break;
-                        }
-                        if (success)
-                        {
-                            Debug.WriteLine($"Parsed {token} as {operandType.ToString()}.");
+                            // Interpret the remainder of the token as an address, if possible, or else a symbol.
+                            if (int.TryParse(token, out int addr))
+                            {
+                                operand.Value = addr;
+                            }
+                            else
+                            {
+                                // todo: check that token is valid for a symbol name and return false if it isn't.
+                                operand.Symbol = token;
+                            }
                             break;
-                        }
+                        case OperandType.Register:
+                            if (Enum.TryParse(token, true, out Register reg))
+                            {
+                                operand.Value = (int)reg; // Casting Register to int.
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"Could not parse {token} as a register.");
+                                result = null;
+                                return false;
+                            }
+                            break;
                     }
+
+                    Debug.WriteLine($"Parsed {token} as {operand.Type.ToString()}.");
+
                 } // for each operand.
 
                 result = ret;
