@@ -45,7 +45,7 @@ namespace SICXE
 
 
         private static bool TryParseWithoutLabel(string[] tokens, out Line result)
-        {
+        {       
             // Attempt to parse as instruction.
             if (Instruction.TryParse(tokens, out Instruction inst))
             {

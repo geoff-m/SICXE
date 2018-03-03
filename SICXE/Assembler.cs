@@ -14,8 +14,13 @@ namespace SICXE
 
         public bool TryAssemble(out Word[] result)
         {
-            PassOne();
-
+            if (!PassOne())
+            {
+                Console.WriteLine("Pass one failed.");
+                result = null;
+                return false;
+            }
+            Console.WriteLine("Pass one succeeded.");
 
             result = null;
             return false;
@@ -29,6 +34,10 @@ namespace SICXE
 
         Dictionary<string, Symbol> symbols;
         bool donePassOne = false;
+        /// <summary>
+        /// Takes account of all symbols declared or referenced, and computes the total length of the assembled binary.
+        /// </summary>
+        /// <returns></returns>
         private bool PassOne()
         {
             if (donePassOne)

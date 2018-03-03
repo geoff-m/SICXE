@@ -8,11 +8,12 @@ namespace SICXE
     {
         static void Main(string[] args)
         {
-            const string GOOGLE_DRIVE_PATH = @"C:\Users\geoff\Google Drive\";
-
+            //const string GOOGLE_DRIVE_PATH = @"C:\Users\geoff\Google Drive\";
+            const string GOOGLE_DRIVE_PATH = @"E:\Google Drive\";
+            const string PROGRAM_PATH = @"Intro to System Software\asms\copy-tix-add.asm";
             //var myProgram = Program.Parse(GOOGLE_DRIVE_PATH + @"Intro to System Software\asms\small.txt");
 
-            if (Program.TryParse(GOOGLE_DRIVE_PATH + @"Intro to System Software\asms\copy-add.asm", out Program myProgram))
+            if (Program.TryParse(GOOGLE_DRIVE_PATH + PROGRAM_PATH, out Program myProgram))
             {
 
                 for (int i = 0; i < myProgram.Count; ++i)
@@ -24,17 +25,15 @@ namespace SICXE
                 var assembler = new Assembler(myProgram);
                 if (assembler.TryAssemble(out Word[] myBinary))
                 {
-                    Console.WriteLine("Assembly succeeded.");
+                    Console.WriteLine("\nAssembly succeeded.");
                 }
                 else
                 {
-                    Console.WriteLine("Assembly failed.");
+                    Console.WriteLine("\nAssembly failed.");
                 }
 
                 //var myMachine = new vsic.Machine();
             }
-
-
 
         }
     }

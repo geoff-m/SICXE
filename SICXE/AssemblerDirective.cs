@@ -38,7 +38,7 @@ namespace SICXE
         /// <returns>A Boolean value indicating whether the parse was successful.</returns>
         public static bool TryParse(string[] tokens, out AssemblerDirective result)
         {
-            if (tokens.Length == 0)
+            if (tokens.Length < 2)
             {
                 result = null;
                 return false;

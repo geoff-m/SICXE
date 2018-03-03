@@ -64,7 +64,7 @@ namespace SICXE
             {
                 if (hasValue)
                 {
-                    return $"{prefix}{Symbol}({Value})";
+                    return $"{prefix}{Symbol}(={Value})";
                 }
                 return $"{prefix}{Symbol}";
 
@@ -73,7 +73,7 @@ namespace SICXE
             {
                 return $"{prefix}{Value}";
             }
-            return $"{prefix} ????";
+            return $"{prefix}??";
         }
 
     }
@@ -204,6 +204,11 @@ namespace SICXE
         /// <returns>A Boolean value indicating whether the parse succeeded.</returns>
         public static bool TryParse(string[] tokens, out Instruction result)
         {
+            if (tokens.Length == 0)
+            {
+                result = null;
+                return false;
+            }
             string mnemonic = tokens[0];
             bool removePrefix = false;
             bool sic = false;
@@ -226,6 +231,7 @@ namespace SICXE
             {
                 mnemonic = mnemonic.Substring(1);
             }
+            
             if (Enum.TryParse(mnemonic, true, out Mnemonic m)) // true to ignore case.
             {
                 switch (m)

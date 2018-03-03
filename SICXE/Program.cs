@@ -123,6 +123,7 @@ namespace SICXE
                     else
                     {
                         Console.WriteLine($"Parsing line {lineCount} failed: \"{textLine}\"");
+                        ++errorCount;
                     }
                 }
             }
