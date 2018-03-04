@@ -182,19 +182,26 @@ namespace SICXE
                     break;
                 case Mnemonic.CLEAR:
                     Operands = new List<Operand>() { new Operand(OperandType.Register) }.AsReadOnly();
-
+                    Format = InstructionFormat.Format2;
                     break;
                 case Mnemonic.RMO:
+                case Mnemonic.ADDR:
+                case Mnemonic.SUBR:
+                case Mnemonic.COMPR:
+                case Mnemonic.DIVR:
+                case Mnemonic.MULR:
+                case Mnemonic.TIXR:
                     Operands = new List<Operand>() { new Operand(OperandType.Register), new Operand(OperandType.Register) }.AsReadOnly();
+                    Format = InstructionFormat.Format2;
                     break;
-
                 case Mnemonic.RSUB:
                     Operands = new List<Operand>();
                     break;
+
                 default:
                     throw new NotSupportedException("That operation is not yet supported.");
             }
-        }
+        } // End constructor.
 
         /// <summary>
         /// Parses the given string into an operation.
@@ -204,7 +211,7 @@ namespace SICXE
         /// <returns>A Boolean value indicating whether the parse succeeded.</returns>
         public static bool TryParse(string[] tokens, out Instruction result)
         {
-            if (tokens.Length == 0)
+            if (tokens.Length == 0 || tokens[0].Length == 0)
             {
                 result = null;
                 return false;
@@ -225,32 +232,14 @@ namespace SICXE
                     fmt = InstructionFormat.Format4;
                     removePrefix = true;
                     break;
-                    // todo: any other cases...
             }
             if (removePrefix)
             {
                 mnemonic = mnemonic.Substring(1);
             }
-            
-            if (Enum.TryParse(mnemonic, true, out Mnemonic m)) // true to ignore case.
+
+            if (!char.IsDigit(mnemonic[0]) && Enum.TryParse(mnemonic, true, out Mnemonic m)) // true to ignore case.
             {
-                switch (m)
-                {
-                    // todo: set format 1 for format 1 instructions here
-
-                    // Mark format for Format 2 instructions.
-                    case Mnemonic.ADDR:
-                    case Mnemonic.CLEAR:
-                    case Mnemonic.COMPR:
-                    case Mnemonic.DIVR:
-                    case Mnemonic.MULR:
-                    case Mnemonic.SUBR:
-                    case Mnemonic.TIXR:
-                    case Mnemonic.RMO:
-                        fmt = InstructionFormat.Format2;
-                        break;
-                }
-
                 //if (m == Mnemonic.RMO)
                 //    Debugger.Break();
 
@@ -259,7 +248,23 @@ namespace SICXE
                 if (sic)
                     ret.Flags = 0;
 
-                ret.Format = fmt;
+                if (ret.Format == InstructionFormat.NotSet)
+                {
+                    if (fmt != InstructionFormat.NotSet)
+                    {
+                        ret.Format = fmt;
+                    }
+                }
+                else
+                {
+                    if (fmt != InstructionFormat.NotSet)
+                    {
+                        // Instruction already knows its format but we planned to set it to something!
+                        Console.WriteLine($"Instruction {m} must be format {(int)ret.Format} (prefix indicated format {(int)fmt})!");
+                        result = null;
+                        return false;
+                    }
+                }
 
                 if (tokens.Length >= 2)
                 {
@@ -268,20 +273,23 @@ namespace SICXE
                     if (commaIdx >= 0)
                     {
                         var afterComma = args.Substring(commaIdx + 1);
-                        if (fmt == InstructionFormat.Format2)
+                        if (ret.Format == InstructionFormat.Format2)
                         {
-                            var splitOnComma = new string[tokens.Length + 1];
-                            splitOnComma[0] = tokens[0];
-                            splitOnComma[1] = args.Substring(0, commaIdx);
-                            splitOnComma[2] = args.Substring(commaIdx + 1);
-                            Array.Copy(tokens, 2, splitOnComma, 3, tokens.Length - 2);
-                            tokens = splitOnComma;
+                            if (ret.Operands.Count == 2)
+                            {
+                                var splitOnComma = new string[tokens.Length + 1];
+                                splitOnComma[0] = tokens[0];
+                                splitOnComma[1] = args.Substring(0, commaIdx);
+                                splitOnComma[2] = args.Substring(commaIdx + 1);
+                                Array.Copy(tokens, 2, splitOnComma, 3, tokens.Length - 2);
+                                tokens = splitOnComma;
+                            }
                         }
                         else
                         {
                             if (afterComma != "x")
                             {
-                                Debug.WriteLine($"Unexpected ',' in {string.Join(" ", tokens)}");
+                                Console.WriteLine($"Unexpected ',' in {string.Join(" ", tokens)}");
                                 result = null;
                                 return false;
                             }
@@ -343,7 +351,7 @@ namespace SICXE
                             }
                             else
                             {
-                                Debug.WriteLine($"Could not parse {token} as a register.");
+                                Console.WriteLine($"Could not parse {token} as a register.");
                                 result = null;
                                 return false;
                             }

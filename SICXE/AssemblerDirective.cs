@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace SICXE
 {
@@ -15,7 +14,8 @@ namespace SICXE
             WORD = 4,
 
             START = 10,
-            END = 11
+            END = 11,
+            BASE = 12
             // etc.
         }
 

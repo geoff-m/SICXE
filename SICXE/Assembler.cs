@@ -32,6 +32,11 @@ namespace SICXE
             prog = p;
         }
 
+        /// <summary>
+        /// The binary segment associated with each line in the program.
+        /// </summary>
+        private IList<byte>[] bytes;
+
         Dictionary<string, Symbol> symbols;
         bool donePassOne = false;
         /// <summary>
@@ -45,9 +50,11 @@ namespace SICXE
                 throw new InvalidOperationException("Pass one has already been done!");
             }
 
+            bytes = new List<byte>[prog.Count];
             symbols = new Dictionary<string, Symbol>();
-            foreach (var line in prog)
+            for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
             {
+                Line line = prog[lineIdx];
                 if (line is AssemblerDirective dir)
                 {
                     if (dir.Value == null)
@@ -60,18 +67,49 @@ namespace SICXE
                     {
                         // We require these directives to have an integer as their argument.
                         case AssemblerDirective.Mnemonic.BYTE:
+                            if (int.TryParse(dir.Value, out val))
+                            {
+                                if (line.Label != null)
+                                    if (!SetSymbolValue(line.Label, val))
+                                        return false;
+                                bytes[lineIdx] = EncodeTwosComplement(val, 8);
+                            }
+                            else
+                            {
+                                // todo: some byte directives don't have the form of an integer. handle these.
+                                Console.WriteLine($"Could not parse byte \"{dir.Value}\" in \"{dir.ToString()}\"");
+                                return false;
+                            }
+                            break;
                         case AssemblerDirective.Mnemonic.WORD:
+                            if (int.TryParse(dir.Value, out val))
+                            {
+                                if (line.Label != null)
+                                    if (!SetSymbolValue(line.Label, val))
+                                        return false;
+                                bytes[lineIdx] = EncodeTwosComplement(val, 12);
+                            }
+                            else
+                            {
+                                // todo: some word directives don't have the form of an integer. handle these.
+                                Console.WriteLine($"Could not parse word \"{dir.Value}\" in \"{dir.ToString()}\"");
+                                return false;
+                            }
+                            break;
                         case AssemblerDirective.Mnemonic.RESW:
                             if (int.TryParse(dir.Value, out val))
                             {
                                 if (line.Label != null)
                                     if (!SetSymbolValue(line.Label, val))
-                                    return false;
+                                        return false;
+                                
+                                // todo: assemble the directive.
+
                             }
                             else
                             {
                                 // todo: some word/byte directives don't have the form of an integer. handle these.
-                                Console.WriteLine($"Could not parse integer \"{dir.Value}\"");
+                                Console.WriteLine($"Could not parse integer \"{dir.Value}\" in \"{dir.ToString()}\"");
                                 return false;
                             }
                             break;
@@ -80,7 +118,7 @@ namespace SICXE
                         case AssemblerDirective.Mnemonic.END:
                             if (dir.Value == null)
                             {
-                                Console.WriteLine("START and END directives must have a value!");
+                                Console.WriteLine("START and END directives must be followed by a label or address!");
                                 return false;
                             }
                             if (int.TryParse(dir.Value, out val))
@@ -91,7 +129,7 @@ namespace SICXE
                             }
                             else
                             {
-                                UseSymbol(dir.Value);
+                                TouchSymbol(dir.Value);
                             }
                             break;
                     }
@@ -103,13 +141,47 @@ namespace SICXE
                         if (!CreateSymbol(line.Label))
                             return false;
                     }
-                    var operands = ((Instruction)line).Operands;
+
+                    var instr = (Instruction)line;
+                    var operands = instr.Operands;
+                    switch (instr.Format)
+                    {
+                        case InstructionFormat.Format1:
+                            if (operands.Count > 0)
+                            {
+                                Console.WriteLine($"Error: Format 1 instruction takes no operands, but {string.Join(", ", operands)} was given!");
+                                return false;
+                            }
+                            bytes[lineIdx] = new byte[] { (byte)instr.Operation };
+                            break;
+
+                        case InstructionFormat.Format2:
+                            if (operands.Count == 0)
+                            {
+                                Console.WriteLine($"Error: Format 2 instruction takes 1 or 2 operands, but none were given!");
+                                return false;
+                            }
+                            if (operands.Count > 2)
+                            {
+                                Console.WriteLine($"Error: Format 2 instruction takes 1 or 2 operands, but {string.Join(", ", operands)} was given!");
+                                return false;
+                            }
+                            
+                            break;
+                    }
+
+
+
                     if (operands.Count == 1)
                     {
                         var operandSymbol = operands[0].Symbol;
                         if (operandSymbol != null)
-                            UseSymbol(operandSymbol);
+                            TouchSymbol(operandSymbol);
                     }
+
+                    
+
+                    
                 }
             }
 
@@ -121,7 +193,7 @@ namespace SICXE
         /// Creates the symbol with the specified name if it does not exist.
         /// </summary>
         /// <param name="name"></param>
-        private void UseSymbol(string name)
+        private void TouchSymbol(string name)
         {
             if (!symbols.ContainsKey(name))
                 symbols.Add(name, new Symbol(name));
@@ -164,6 +236,36 @@ namespace SICXE
             }
             symbols.Add(name, new Symbol(name) { Value = value });
             return true;
+        }
+
+        private static byte[] EncodeTwosComplement(int n, int bits) // untested.
+        {
+            int highMask = checked(~((1 << bits) - 1));
+            if ((highMask & bits) > 0)
+            {
+                throw new OverflowException();
+            }
+
+            if (n < 0)
+            {
+                n = ~n;
+                n = checked(n + 1);
+                n &= ~highMask;
+            }
+
+            byte high = (byte)((n & 0xff0000) >> 16);
+            byte middle = (byte)((n & 0xff00) >> 8);
+            byte low = (byte)(n & 0xff);
+            if (high == 0)
+            {
+                if (middle == 0)
+                {
+                    return new byte[] { low };
+                }
+                return new byte[] { low, middle };
+            }
+            return new byte[] { low, middle, high };
+
         }
     }
 }

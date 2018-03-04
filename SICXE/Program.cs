@@ -99,7 +99,7 @@ namespace SICXE
                     int commentStart = textLine.IndexOf('.');
                     if (commentStart >= 0)
                         textLine = textLine.Substring(0, commentStart);
-                    textLine = textLine.Trim();
+                    textLine = textLine.TrimEnd();
                     if (textLine.Length == 0)
                         continue; // Ignore line because it is empty.
                     if (textLine[0] == '.')

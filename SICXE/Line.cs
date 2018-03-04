@@ -27,25 +27,62 @@ namespace SICXE
             * If these both fail, we conclude the first token is a label.
             */
 
-            if (TryParseWithoutLabel(tokens, out result))
-            {
-                // The line had no label.
-                return true;
-            }
+            /*  Update: A (non-comment) input line should be interpreted as having a label iff its first character is not whitespace.
+             *  Therefore we'll use this condition to determine if the first token should be interpreted as a label.
+             *  However, I do not like this rule and think the user should be able to give us a line withouth a label that nevertheless begins without any whitespace.
+             *  So, I have resolved to assume the rule is followed, but if parsing in that way fails, I will try assuming the rule is not followed.
+             *  If the latter succeeds, I will proceed while emitting a warning.
+             */
 
-            // Treat the first token as a label.
-            if (TryParseWithoutLabel(tokens.Skip(1).ToArray(), out result))
+            if (char.IsWhiteSpace(s[0]))
             {
-                result.Label = tokens[0];
-                return true;
+                if (TryParseWithoutLabel(tokens, out result))
+                {
+                    // The line had no label.
+                    return true;
+                }
+                else
+                {
+                    // Treat the first token as a label.
+                    if (TryParseWithoutLabel(tokens.Skip(1).ToArray(), out result))
+                    {
+                        Console.WriteLine($"Warning: Extra whitespace at start of line \"{s}\"");
+                        result.Label = tokens[0];
+                        return true;
+                    }
+                }
+            }
+            else
+            {
+                // Treat the first token as a label.
+                if (TryParseWithoutLabel(tokens.Skip(1).ToArray(), out result))
+                {
+                    result.Label = tokens[0];
+                    return true;
+                }
+                else
+                {
+                    if (TryParseWithoutLabel(tokens, out result))
+                    {
+                        // The line had no label.
+                        if (result is AssemblerDirective)
+                        {
+                            Console.WriteLine($"Warning: Assembler directive should be preceded by whitespace: \"{s}\"");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Warning: Instruction should be preceded by whitespace: \"{s}\"");
+                        }
+                        return true;
+                    }
+                }
             }
 
             return false;
         }
 
-
         private static bool TryParseWithoutLabel(string[] tokens, out Line result)
-        {       
+        {
             // Attempt to parse as instruction.
             if (Instruction.TryParse(tokens, out Instruction inst))
             {
@@ -63,5 +100,6 @@ namespace SICXE
             result = null;
             return false;
         }
+
     }
 }
