@@ -21,8 +21,7 @@ namespace SICXE
                     Console.WriteLine($"{myProgram[i].ToString()}");
                 }
 
-                var assembler = new Assembler(myProgram);
-                if (assembler.TryAssemble(out Word[] myBinary))
+                if (Assembler.TryAssemble(myProgram, out Word[] myBinary))
                 {
                     Console.WriteLine("\nAssembly succeeded.");
                 }

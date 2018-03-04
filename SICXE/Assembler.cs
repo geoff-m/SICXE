@@ -10,12 +10,8 @@ namespace SICXE
     {
         public static bool TryAssemble(Program prog, out Word[] result)
         {
-            throw new NotImplementedException();
-        }
-
-        public bool TryAssemble(out Word[] result)
-        {
-            if (!PassOne())
+            var inst = new Assembler(prog);
+            if (!inst.PassOne())
             {
                 Console.WriteLine("Pass one failed.");
                 result = null;
@@ -26,9 +22,10 @@ namespace SICXE
             result = null;
             return false;
         }
+        
 
         Program prog;
-        public Assembler(Program p)
+        private Assembler(Program p)
         {
             prog = p;
         }
@@ -149,26 +146,14 @@ namespace SICXE
                     switch (instr.Format)
                     {
                         case InstructionFormat.Format1:
-                            if (operands.Count > 0)
-                            {
-                                Console.WriteLine($"Error: Format 1 instruction takes no operands, but {string.Join(", ", operands)} was given!");
-                                return false;
-                            }
+                            Debug.Assert(operands.Count == 0, $"Error: Format 1 instruction takes no operands, but {string.Join(", ", operands)} was given!");
+
                             binary[lineIdx] = new byte[] { (byte)instr.Operation };
                             break;
-
                         case InstructionFormat.Format2:
-                            if (operands.Count == 0)
-                            {
-                                Console.WriteLine($"Error: Format 2 instruction takes 1 or 2 operands, but none were given!");
-                                return false;
-                            }
-                            if (operands.Count > 2)
-                            {
-                                Console.WriteLine($"Error: Format 2 instruction takes 1 or 2 operands, but {string.Join(", ", operands)} was given!");
-                                return false;
-                            }
+                            Debug.Assert(operands.Count == 1 || operands.Count == 2, $"Format 2 instruction takes 1 or 2 operands, but {string.Join(", ", operands)} was given!");
 
+                            binary[lineIdx] = AssembleFormat2(instr);
                             break;
                         case InstructionFormat.Format3:
                         case InstructionFormat.Format4:
@@ -184,13 +169,27 @@ namespace SICXE
             return true;
         }
 
+        private byte[] AssembleFormat2(Instruction instr)
+        {
+            if (instr.Format != InstructionFormat.Format2)
+                throw new ArgumentException("Instruction must be format 2 to be processed by this method.");
+
+            byte[] ret = new byte[2];
+            ret[0] = (byte)instr.Operation;
+            ret[1] = (byte)(instr.Operands[0].Value << 4);
+            if (instr.Operands.Count > 1)
+                ret[1] |= (byte)(instr.Operands[1].Value);
+
+            return ret;
+        }
+
         // todo: change this to bool TryAssembleFormats32(...) and remove most exceptions this can throw.
         private byte[] AssembleFormats34(Instruction instr)
         {
             int oplen = (int)instr.Format;
 
             if (oplen != 3 && oplen != 4)
-                throw new ArgumentException("Instruction must be in format 3 or 4 to be processed by this method.");
+                throw new ArgumentException("Instruction must be format 3 or 4 to be processed by this method.");
 
             var binInstr = new byte[oplen];
             Array.Clear(binInstr, 0, oplen); // Initialize array to all zeroes. (Not sure if this is necessary.)
@@ -219,7 +218,7 @@ namespace SICXE
                         binInstr[1] |= 0x80; // set X flag.
                         break;
                 }
-                
+
                 // Leave filling in of displacement until pass two.
                 return binInstr;
             }
