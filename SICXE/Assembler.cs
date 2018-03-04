@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Diagnostics;
 
 namespace SICXE
 {
@@ -35,7 +36,7 @@ namespace SICXE
         /// <summary>
         /// The binary segment associated with each line in the program.
         /// </summary>
-        private IList<byte>[] bytes;
+        private byte[][] binary;
 
         Dictionary<string, Symbol> symbols;
         bool donePassOne = false;
@@ -50,7 +51,7 @@ namespace SICXE
                 throw new InvalidOperationException("Pass one has already been done!");
             }
 
-            bytes = new List<byte>[prog.Count];
+            binary = new byte[prog.Count][];
             symbols = new Dictionary<string, Symbol>();
             for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
             {
@@ -72,7 +73,7 @@ namespace SICXE
                                 if (line.Label != null)
                                     if (!SetSymbolValue(line.Label, val))
                                         return false;
-                                bytes[lineIdx] = EncodeTwosComplement(val, 8);
+                                binary[lineIdx] = EncodeTwosComplement(val, 8);
                             }
                             else
                             {
@@ -87,7 +88,7 @@ namespace SICXE
                                 if (line.Label != null)
                                     if (!SetSymbolValue(line.Label, val))
                                         return false;
-                                bytes[lineIdx] = EncodeTwosComplement(val, 12);
+                                binary[lineIdx] = EncodeTwosComplement(val, 12);
                             }
                             else
                             {
@@ -102,7 +103,7 @@ namespace SICXE
                                 if (line.Label != null)
                                     if (!SetSymbolValue(line.Label, val))
                                         return false;
-                                
+
                                 // todo: assemble the directive.
 
                             }
@@ -144,6 +145,7 @@ namespace SICXE
 
                     var instr = (Instruction)line;
                     var operands = instr.Operands;
+                    byte[] binInstr = null;
                     switch (instr.Format)
                     {
                         case InstructionFormat.Format1:
@@ -152,7 +154,7 @@ namespace SICXE
                                 Console.WriteLine($"Error: Format 1 instruction takes no operands, but {string.Join(", ", operands)} was given!");
                                 return false;
                             }
-                            bytes[lineIdx] = new byte[] { (byte)instr.Operation };
+                            binary[lineIdx] = new byte[] { (byte)instr.Operation };
                             break;
 
                         case InstructionFormat.Format2:
@@ -166,27 +168,73 @@ namespace SICXE
                                 Console.WriteLine($"Error: Format 2 instruction takes 1 or 2 operands, but {string.Join(", ", operands)} was given!");
                                 return false;
                             }
-                            
+
+                            break;
+                        case InstructionFormat.Format3:
+                        case InstructionFormat.Format4:
+                            binInstr = AssembleFormats34(instr);
+                            binary[lineIdx] = binInstr;
                             break;
                     }
 
-
-
-                    if (operands.Count == 1)
-                    {
-                        var operandSymbol = operands[0].Symbol;
-                        if (operandSymbol != null)
-                            TouchSymbol(operandSymbol);
-                    }
-
-                    
-
-                    
                 }
             }
 
             donePassOne = true;
             return true;
+        }
+
+        // todo: change this to bool TryAssembleFormats32(...) and remove most exceptions this can throw.
+        private byte[] AssembleFormats34(Instruction instr)
+        {
+            int oplen = (int)instr.Format;
+
+            if (oplen != 3 && oplen != 4)
+                throw new ArgumentException("Instruction must be in format 3 or 4 to be processed by this method.");
+
+            var binInstr = new byte[oplen];
+            Array.Clear(binInstr, 0, oplen); // Initialize array to all zeroes. (Not sure if this is necessary.)
+            binInstr[0] = (byte)instr.Operation; // Set first byte of instruction to opcode.
+
+            int opcount = instr.Operands.Count;
+            if (opcount == 1)
+            {
+                var firstOperand = instr.Operands[0];
+
+                // If it's a symbol, ensure we include it in the symbol table.
+                var sym = firstOperand.Symbol;
+                if (sym != null)
+                    TouchSymbol(sym);
+
+                // Set the flags that don't require any calculation. We do the rest in pass two.
+                switch (firstOperand.AddressingMode)
+                {
+                    case AddressingMode.Indirect:
+                        binInstr[0] |= 2; // set N flag.
+                        break;
+                    case AddressingMode.Immediate:
+                        binInstr[0] |= 1; // set I flag.
+                        break;
+                    case AddressingMode.Indexed:
+                        binInstr[1] |= 0x80; // set X flag.
+                        break;
+                }
+                
+                // Leave filling in of displacement until pass two.
+                return binInstr;
+            }
+
+            if (opcount == 0)
+            {
+                // The only nullary format 3/4 instruction is RSUB.
+                if (instr.Operation != Instruction.Mnemonic.RSUB)
+                    throw new ArgumentException($"Missing operand(s) for instruction {instr.ToString()}.");
+
+                // What should we expect addressing mode to be here?
+                // all flags zero?
+                // ni=11, rest zero?
+            }
+            throw new ArgumentException($"Too many operands for format {oplen} instruction {instr.ToString()}.");
         }
 
         /// <summary>

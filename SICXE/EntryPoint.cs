@@ -10,9 +10,8 @@ namespace SICXE
         {
             //const string GOOGLE_DRIVE_PATH = @"C:\Users\geoff\Google Drive\";
             const string GOOGLE_DRIVE_PATH = @"E:\Google Drive\";
-            //const string PROGRAM_PATH = @"Intro to System Software\asms\copy-tix-add.asm";
-            const string PROGRAM_PATH = @"Intro to System Software\asms\small.txt";
-            //var myProgram = Program.Parse(GOOGLE_DRIVE_PATH + @"Intro to System Software\asms\small.txt");
+            const string PROGRAM_PATH = @"Intro to System Software\asms\copy-tix-add.asm";
+            //const string PROGRAM_PATH = @"Intro to System Software\asms\small.txt";
 
             if (Program.TryParse(GOOGLE_DRIVE_PATH + PROGRAM_PATH, out Program myProgram))
             {

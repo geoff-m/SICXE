@@ -179,6 +179,7 @@ namespace SICXE
                 case Mnemonic.JLT:
                 case Mnemonic.TIX:
                     Operands = new List<Operand>() { new Operand(OperandType.Address) }.AsReadOnly();
+                    Format = InstructionFormat.Format3;
                     break;
                 case Mnemonic.CLEAR:
                     Operands = new List<Operand>() { new Operand(OperandType.Register) }.AsReadOnly();
