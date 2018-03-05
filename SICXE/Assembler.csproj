@@ -60,6 +60,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="bin\Debug\prog1.txt" />
+    <Content Include="questions.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\sicsim\vsic.csproj">

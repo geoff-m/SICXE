@@ -8,7 +8,7 @@ namespace SICXE
 {
     class Assembler
     {
-        public static bool TryAssemble(Program prog, out Word[] result)
+        public static bool TryAssemble(Program prog, out byte[] result)
         {
             var inst = new Assembler(prog);
             if (!inst.PassOne())
@@ -19,8 +19,23 @@ namespace SICXE
             }
             Console.WriteLine("Pass one succeeded.");
 
-            result = null;
-            return false;
+            if (!inst.PassTwo())
+            {
+                Console.WriteLine("Pass two failed.");
+                result = null;
+                return false;
+            }
+            Console.WriteLine("Pass two succeeded.");
+
+            var ret = new List<byte>();
+            foreach (var line in inst.binary)
+            {
+                if (line != null)
+                    ret.AddRange(line);
+            }
+
+            result = ret.ToArray();
+            return true;
         }
         
 
@@ -36,6 +51,7 @@ namespace SICXE
         private byte[][] binary;
 
         Dictionary<string, Symbol> symbols;
+        Dictionary<Symbol, int> symbolTable; // symbol x address // todo: implement me.
         bool donePassOne = false;
         /// <summary>
         /// Takes account of all symbols declared or referenced, and computes the total length of the assembled binary.
@@ -147,12 +163,10 @@ namespace SICXE
                     {
                         case InstructionFormat.Format1:
                             Debug.Assert(operands.Count == 0, $"Error: Format 1 instruction takes no operands, but {string.Join(", ", operands)} was given!");
-
                             binary[lineIdx] = new byte[] { (byte)instr.Operation };
                             break;
                         case InstructionFormat.Format2:
                             Debug.Assert(operands.Count == 1 || operands.Count == 2, $"Format 2 instruction takes 1 or 2 operands, but {string.Join(", ", operands)} was given!");
-
                             binary[lineIdx] = AssembleFormat2(instr);
                             break;
                         case InstructionFormat.Format3:
@@ -166,6 +180,20 @@ namespace SICXE
             }
 
             donePassOne = true;
+            return true;
+        }
+
+        bool donePassTwo = false;
+        private bool PassTwo()
+        {
+            if (donePassTwo)
+            {
+                throw new InvalidOperationException("Pass two has already been done!");
+            }
+
+
+
+            donePassTwo = true;
             return true;
         }
 
@@ -290,6 +318,7 @@ namespace SICXE
             int highMask = checked(~((1 << bits) - 1));
             if ((highMask & bits) > 0)
             {
+                // Higher bits are set in 'n' than 2^bits.
                 throw new OverflowException();
             }
 
