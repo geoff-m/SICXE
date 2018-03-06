@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SICXE
 {
@@ -40,6 +38,7 @@ namespace SICXE
                 int gap = current.Start - last.Stop;
                 if (gap != 1)
                     return false;
+                last = current;
             }
             return true;
         }

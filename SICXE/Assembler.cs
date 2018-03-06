@@ -28,13 +28,7 @@ namespace SICXE
             }
             Console.WriteLine("Pass two succeeded.");
 
-            var ret = new List<byte>();
-            foreach (var line in inst.binary)
-            {
-                if (line != null)
-                    ret.AddRange(line);
-            }
-            inst.outputBinary.Bytes = ret.ToArray();
+            inst.outputBinary.AddSegment(inst.codeSegment);
 
             result = inst.outputBinary;
             return true;
@@ -67,6 +61,11 @@ namespace SICXE
         bool hitStart = false; // We allow only one of these.
         bool hitEnd = false; // We allow only one of these.
 
+        /// <summary>
+        /// The total number of instruction bytes in the program.
+        /// </summary>
+        int instructionBytes = 0;
+
         Dictionary<string, Symbol> symbols;
         bool donePassOne = false;
         /// <summary>
@@ -77,11 +76,12 @@ namespace SICXE
         {
             if (donePassOne)
             {
+                // This indicates a bug.
                 throw new InvalidOperationException("Pass one has already been done!");
             }
 
             int bytesSoFar = 0;
-            var binary =  new byte[prog.Count][];
+            var binary = new byte[prog.Count][];
             symbols = new Dictionary<string, Symbol>();
             for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
             {
@@ -230,6 +230,7 @@ namespace SICXE
                     line.Address = bytesSoFar;
                     var instr = (Instruction)line;
                     bytesSoFar += (int)instr.Format;
+                    instructionBytes += (int)instr.Format;
                 }
             }
 
@@ -244,47 +245,63 @@ namespace SICXE
         {
             if (donePassTwo)
             {
+                // This indicates a bug.
                 throw new InvalidOperationException("Pass two has already been done!");
             }
-            int ip = 0;
-            for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
+            Debug.Assert(codeSegment == null);
+            codeSegment = new Segment
             {
-                if (prog[lineIdx] is Instruction instr)
-                {
-                    for (int operandIdx = 0; operandIdx < instr.Operands.Count; ++operandIdx)
-                    {
-                        Operand operand = instr.Operands[operandIdx];
-                        if (!operand.Value.HasValue)
-                        {
-                            string sym = TrimIndexer(operand.SymbolName);
-                            Debug.Assert(sym != null);
-                            operand.Value = symbols[sym].Address;
-                        }
-                    }
+                Data = new byte[instructionBytes]
+            };
 
-                    var operands = instr.Operands;
-                    byte[] binInstr = null;
-                    switch (instr.Format)
+            int ip = 0; // Index in the code segment.
+            byte[] binInstr = null;
+            var instructions = prog.Where(l => l is Instruction).Cast<Instruction>().ToList();
+            for (int instrIdx = 0; instrIdx < instructions.Count; ++instrIdx)
+            {
+                Instruction instr = instructions[instrIdx];
+                for (int operandIdx = 0; operandIdx < instr.Operands.Count; ++operandIdx)
+                {
+                    Operand operand = instr.Operands[operandIdx];
+                    if (!operand.Value.HasValue)
                     {
-                        case InstructionFormat.Format1:
-                            Debug.Assert(operands.Count == 0, $"Error: Format 1 instruction takes no operands, but {string.Join(", ", operands)} was given!");
-                            binary[lineIdx] = new byte[] { (byte)instr.Operation };
-                            break;
-                        case InstructionFormat.Format2:
-                            Debug.Assert(operands.Count == 1 || operands.Count == 2, $"Format 2 instruction takes 1 or 2 operands, but {string.Join(", ", operands)} was given!");
-                            binary[lineIdx] = AssembleFormat2(instr);
-                            break;
-                        case InstructionFormat.Format3:
-                        case InstructionFormat.Format4:
-                            binInstr = AssembleFormats34(instr, instr.Address.Value + (int)instr.Format, @base);
-                            binary[lineIdx] = binInstr;
-                            break;
+                        string sym = TrimIndexer(operand.SymbolName);
+                        Debug.Assert(sym != null);
+                        operand.Value = symbols[sym].Address;
                     }
                 }
+                var operands = instr.Operands;
+
+                switch (instr.Format)
+                {
+                    case InstructionFormat.Format1:
+                        Debug.Assert(operands.Count == 0, $"Error: Format 1 instruction takes no operands, but {string.Join(", ", operands)} was given!");
+                        binInstr = new byte[] { (byte)instr.Operation };
+                        break;
+                    case InstructionFormat.Format2:
+                        Debug.Assert(operands.Count == 1 || operands.Count == 2, $"Format 2 instruction takes 1 or 2 operands, but {string.Join(", ", operands)} was given!");
+                        binInstr = AssembleFormat2(instr);
+                        break;
+                    case InstructionFormat.Format3:
+                    case InstructionFormat.Format4:
+                        binInstr = AssembleFormats34(instr, instr.Address.Value + (int)instr.Format, @base);
+                        break;
+                    default:
+                        // This indicates a bug.
+                        throw new ArgumentException($"Instruction has a bad format.");
+                }
+                Array.Copy(binInstr, 0, codeSegment.Data, ip, binInstr.Length);
+                ip += binInstr.Length;
             }
-            
+
             if (entryPoint != null)
+            {
                 outputBinary.EntryPoint = entryPoint.Address.Value;
+            }
+            else
+            {
+                Console.WriteLine($"Warning: No END directive. Assuming entry point is {codeSegment.BaseAddress}.");
+            }
 
             donePassTwo = true;
             return true;
