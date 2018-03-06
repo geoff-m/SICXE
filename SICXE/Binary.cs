@@ -28,7 +28,7 @@ namespace SICXE
         {
             if (segments.Count < 2)
                 return true;
-            var intervals = segments.Select(s => new Interval(s.BaseAddress, s.BaseAddress + s.Data.Length)).ToList();
+            var intervals = segments.Select(s => new Interval(s.BaseAddress.Value, s.BaseAddress.Value + s.Data.Length)).ToList();
             intervals.Sort((x, y) => x.Start.CompareTo(y.Start));
             Interval last = intervals[0];
             for (int i = 1; i < intervals.Count; ++i)

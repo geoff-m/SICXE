@@ -28,7 +28,9 @@ namespace SICXE
             }
             Console.WriteLine("Pass two succeeded.");
 
-            inst.outputBinary.AddSegment(inst.codeSegment);
+            bool addSuccess = inst.outputBinary.AddSegment(inst.codeSegment);
+            if (!addSuccess)
+                Debug.Fail("Failed to add code segment to binary!");
 
             result = inst.outputBinary;
             return true;
@@ -44,11 +46,6 @@ namespace SICXE
         }
 
         /// <summary>
-        /// The current binary segment.
-        /// </summary>
-        private Segment currentSegment;
-
-        /// <summary>
         /// The segment what contains code.
         /// </summary>
         private Segment codeSegment;
@@ -58,13 +55,15 @@ namespace SICXE
         /// </summary>
         Symbol entryPoint = null;
 
-        bool hitStart = false; // We allow only one of these.
         bool hitEnd = false; // We allow only one of these.
 
         /// <summary>
         /// The total number of instruction bytes in the program.
         /// </summary>
         int instructionBytes = 0;
+
+        int? startAddress;
+        int? firstInstructionAddress; // The address of the first instruction in the program. Used to set the base address of the code segment.
 
         Dictionary<string, Symbol> symbols;
         bool donePassOne = false;
@@ -81,7 +80,11 @@ namespace SICXE
             }
 
             int bytesSoFar = 0;
-            var binary = new byte[prog.Count][];
+
+            var currentSegment = new Segment();
+            //var binary = new byte[prog.Count][];
+            var binary = new List<byte[]>();
+
             symbols = new Dictionary<string, Symbol>();
             for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
             {
@@ -111,7 +114,9 @@ namespace SICXE
 
                                 }
                                 line.Address = bytesSoFar;
-                                binary[lineIdx] = EncodeTwosComplement(val, 8);
+
+                                binary.Add(EncodeTwosComplement(val, 8));
+                                //binary[lineIdx] = EncodeTwosComplement(val, 8);
                                 bytesSoFar += 1;
                             }
                             else
@@ -133,7 +138,9 @@ namespace SICXE
                                     symbols[label].Address = bytesSoFar;
                                 }
                                 line.Address = bytesSoFar;
-                                binary[lineIdx] = EncodeTwosComplement(val, 12);
+
+                                binary.Add(EncodeTwosComplement(val, 12));
+                                //binary[lineIdx] = EncodeTwosComplement(val, 12);
                                 bytesSoFar += Word.Size;
                             }
                             else
@@ -152,6 +159,21 @@ namespace SICXE
 
                                 symbols[label].Address = bytesSoFar;
                                 line.Address = bytesSoFar;
+
+                                // Finalize and push this segment and start a new one.
+                                if (!startAddress.HasValue)
+                                {
+                                    Console.WriteLine("RESW cannot appear before START directive.");
+                                    return false;
+                                }
+                                currentSegment.Data = binary.Join();
+                                binary.Clear();
+                                outputBinary.AddSegment(currentSegment);
+
+                                int lastByte = currentSegment.BaseAddress.Value + currentSegment.Data.Length;
+                                currentSegment = new Segment();
+                                currentSegment.BaseAddress = lastByte + 1;
+
                                 bytesSoFar += Word.Size * val;
                             }
                             else
@@ -161,13 +183,12 @@ namespace SICXE
                             }
                             break;
                         case AssemblerDirective.Mnemonic.START:
-                            if (hitStart)
+                            if (startAddress.HasValue)
                             {
                                 Console.WriteLine("Multiple START directives are not allowed.");
                                 return false;
                             }
 
-                            hitStart = true;
                             if (dir.Value == null)
                             {
                                 Console.WriteLine("START directive must be followed by an address!");
@@ -175,13 +196,11 @@ namespace SICXE
                             }
                             if (int.TryParse(dir.Value, out val))
                             {
-                                if (currentSegment == null)
+                                startAddress = val;
+                                currentSegment = new Segment
                                 {
-                                    currentSegment = new Segment
-                                    {
-                                        BaseAddress = val
-                                    };
-                                }
+                                    BaseAddress = val
+                                };
                             }
                             else
                             {
@@ -219,6 +238,15 @@ namespace SICXE
                 }
                 else // The line must be an instruction.
                 {
+                    if (!startAddress.HasValue)
+                    {
+                        Console.WriteLine("Code cannot appear before START directive.");
+                        return false;
+                    }
+                        
+                    if (!firstInstructionAddress.HasValue)
+                        firstInstructionAddress = bytesSoFar + startAddress;
+
                     label = line.Label;
                     if (label != null)
                     {
@@ -251,6 +279,7 @@ namespace SICXE
             Debug.Assert(codeSegment == null);
             codeSegment = new Segment
             {
+                BaseAddress = firstInstructionAddress,
                 Data = new byte[instructionBytes]
             };
 
@@ -260,6 +289,8 @@ namespace SICXE
             for (int instrIdx = 0; instrIdx < instructions.Count; ++instrIdx)
             {
                 Instruction instr = instructions[instrIdx];
+
+                // Set each operand symbol's address using the symbol table.
                 for (int operandIdx = 0; operandIdx < instr.Operands.Count; ++operandIdx)
                 {
                     Operand operand = instr.Operands[operandIdx];
