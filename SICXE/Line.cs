@@ -13,6 +13,12 @@ namespace SICXE
         { get; set; }
 
         /// <summary>
+        /// The address a line has in the assembled binary.
+        /// </summary>
+        public int? Address
+        { get; set; }
+
+        /// <summary>
         /// Parses a line as either a Directive or an Instruction.
         /// </summary>
         /// <param name="s">A line containing either an assembler directive or a SIC/XE instruction.</param>

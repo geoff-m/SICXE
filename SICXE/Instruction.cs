@@ -40,7 +40,7 @@ namespace SICXE
         /// <summary>
         /// Gets or sets a string that acts as a placeholder for a real value. For help in assembly.
         /// </summary>
-        public string Symbol
+        public string SymbolName
         { get; set; }
 
         public override string ToString()
@@ -58,15 +58,15 @@ namespace SICXE
                     prefix = "";
                     break;
             }
-            bool hasSymbol = Symbol != null;
+            bool hasSymbol = SymbolName != null;
             bool hasValue = Value != null;
             if (hasSymbol)
             {
                 if (hasValue)
                 {
-                    return $"{prefix}{Symbol}(={Value})";
+                    return $"{prefix}{SymbolName}(={Value})";
                 }
-                return $"{prefix}{Symbol}";
+                return $"{prefix}{SymbolName}";
 
             }
             if (hasValue)
@@ -83,9 +83,14 @@ namespace SICXE
     /// </summary>
     class Instruction : Line
     {
+        // typedef Mnemonic int
+        // #define ADD 0x18
+
+            
         public enum Mnemonic
         {
             // Arithmetic
+            dog = 123,
             ADD = 0x18,
             ADDR = 0x90,
             SUB = 0x1C,
@@ -342,7 +347,7 @@ namespace SICXE
                             else
                             {
                                 // todo: check that token is valid for a symbol name and return false if it isn't.
-                                operand.Symbol = token;
+                                operand.SymbolName = token;
                             }
                             break;
                         case OperandType.Register:

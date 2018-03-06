@@ -8,7 +8,8 @@ namespace SICXE
 {
     class Assembler
     {
-        public static bool TryAssemble(Program prog, out byte[] result)
+        // This is the only public methods in the class at this point.
+        public static bool TryAssemble(Program prog, out Binary result)
         {
             var inst = new Assembler(prog);
             if (!inst.PassOne())
@@ -33,30 +34,45 @@ namespace SICXE
                 if (line != null)
                     ret.AddRange(line);
             }
+            inst.outputBinary.Bytes = ret.ToArray();
 
-            result = ret.ToArray();
+            result = inst.outputBinary;
             return true;
         }
-        
+
 
         Program prog;
+        Binary outputBinary;
         private Assembler(Program p)
         {
             prog = p;
+            outputBinary = new Binary();
         }
 
         /// <summary>
-        /// The binary segment associated with each line in the program.
+        /// The current binary segment.
         /// </summary>
-        private byte[][] binary;
+        private Segment currentSegment;
+
+        /// <summary>
+        /// The segment what contains code.
+        /// </summary>
+        private Segment codeSegment;
+
+        /// <summary>
+        /// This points to somewhere in 'codeSegment'.
+        /// </summary>
+        Symbol entryPoint = null;
+
+        bool hitStart = false; // We allow only one of these.
+        bool hitEnd = false; // We allow only one of these.
 
         Dictionary<string, Symbol> symbols;
-        Dictionary<Symbol, int> symbolTable; // symbol x address // todo: implement me.
         bool donePassOne = false;
         /// <summary>
         /// Takes account of all symbols declared or referenced, and computes the total length of the assembled binary.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>True if assembly can continue. False on failure.</returns>
         private bool PassOne()
         {
             if (donePassOne)
@@ -64,11 +80,13 @@ namespace SICXE
                 throw new InvalidOperationException("Pass one has already been done!");
             }
 
-            binary = new byte[prog.Count][];
+            int bytesSoFar = 0;
+            var binary =  new byte[prog.Count][];
             symbols = new Dictionary<string, Symbol>();
             for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
             {
                 Line line = prog[lineIdx];
+                string label;
                 if (line is AssemblerDirective dir)
                 {
                     if (dir.Value == null)
@@ -81,12 +99,20 @@ namespace SICXE
                     {
                         // We require these directives to have an integer as their argument.
                         case AssemblerDirective.Mnemonic.BYTE:
-                            if (int.TryParse(dir.Value, out val))
+                            // for now we allow only exactly 1 byte.
+                            if (int.TryParse(dir.Value, out val) && (val <= 255 || val >= -127))
                             {
-                                if (line.Label != null)
-                                    if (!SetSymbolValue(line.Label, val))
+                                label = line.Label;
+                                if (label != null)
+                                {
+                                    if (!SetSymbolValue(label, val))
                                         return false;
+                                    symbols[label].Address = bytesSoFar;
+
+                                }
+                                line.Address = bytesSoFar;
                                 binary[lineIdx] = EncodeTwosComplement(val, 8);
+                                bytesSoFar += 1;
                             }
                             else
                             {
@@ -98,10 +124,17 @@ namespace SICXE
                         case AssemblerDirective.Mnemonic.WORD:
                             if (int.TryParse(dir.Value, out val))
                             {
-                                if (line.Label != null)
-                                    if (!SetSymbolValue(line.Label, val))
+                                label = line.Label;
+                                if (label != null)
+                                {
+                                    if (!SetSymbolValue(label, val))
                                         return false;
+
+                                    symbols[label].Address = bytesSoFar;
+                                }
+                                line.Address = bytesSoFar;
                                 binary[lineIdx] = EncodeTwosComplement(val, 12);
+                                bytesSoFar += Word.Size;
                             }
                             else
                             {
@@ -113,26 +146,60 @@ namespace SICXE
                         case AssemblerDirective.Mnemonic.RESW:
                             if (int.TryParse(dir.Value, out val))
                             {
-                                if (line.Label != null)
-                                    if (!SetSymbolValue(line.Label, val))
-                                        return false;
+                                label = line.Label;
+                                if (label != null)
+                                    TouchSymbol(label);
 
-                                // todo: assemble the directive.
-
+                                symbols[label].Address = bytesSoFar;
+                                line.Address = bytesSoFar;
+                                bytesSoFar += Word.Size * val;
                             }
                             else
                             {
-                                // todo: some word/byte directives don't have the form of an integer. handle these.
                                 Console.WriteLine($"Could not parse integer \"{dir.Value}\" in \"{dir.ToString()}\"");
                                 return false;
                             }
                             break;
-                        // We allow this directive to have either an integer or a symbol as its argument.
                         case AssemblerDirective.Mnemonic.START:
-                        case AssemblerDirective.Mnemonic.END:
+                            if (hitStart)
+                            {
+                                Console.WriteLine("Multiple START directives are not allowed.");
+                                return false;
+                            }
+
+                            hitStart = true;
                             if (dir.Value == null)
                             {
-                                Console.WriteLine("START and END directives must be followed by a label or address!");
+                                Console.WriteLine("START directive must be followed by an address!");
+                                return false;
+                            }
+                            if (int.TryParse(dir.Value, out val))
+                            {
+                                if (currentSegment == null)
+                                {
+                                    currentSegment = new Segment
+                                    {
+                                        BaseAddress = val
+                                    };
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Cannot parse start address \"{dir.Value}\".");
+                                return false;
+                            }
+                            break;
+                        case AssemblerDirective.Mnemonic.END:
+                            if (hitEnd)
+                            {
+                                Console.WriteLine("Multiple END directives are not allowed.");
+                                return false;
+                            }
+                            hitEnd = true;
+
+                            if (dir.Value == null)
+                            {
+                                Console.WriteLine("END directive must be followed by a label or address!");
                                 return false;
                             }
                             if (int.TryParse(dir.Value, out val))
@@ -140,23 +207,61 @@ namespace SICXE
                                 if (line.Label != null)
                                     if (!CreateSymbol(line.Label))
                                         return false;
+                                outputBinary.EntryPoint = val;
                             }
                             else
                             {
                                 TouchSymbol(dir.Value);
+                                entryPoint = symbols[dir.Value];
                             }
                             break;
                     }
                 }
                 else // The line must be an instruction.
                 {
-                    if (line.Label != null)
+                    label = line.Label;
+                    if (label != null)
                     {
-                        if (!CreateSymbol(line.Label))
+                        label = TrimIndexer(label);
+                        if (!CreateSymbol(label))
                             return false;
+                        symbols[label].Address = bytesSoFar;
+                    }
+                    line.Address = bytesSoFar;
+                    var instr = (Instruction)line;
+                    bytesSoFar += (int)instr.Format;
+                }
+            }
+
+            donePassOne = true;
+            return true;
+        }
+
+        int @base; // todo: implement base directive.
+        bool donePassTwo = false;
+        // Generates displacements.
+        private bool PassTwo()
+        {
+            if (donePassTwo)
+            {
+                throw new InvalidOperationException("Pass two has already been done!");
+            }
+            int ip = 0;
+            for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
+            {
+                if (prog[lineIdx] is Instruction instr)
+                {
+                    for (int operandIdx = 0; operandIdx < instr.Operands.Count; ++operandIdx)
+                    {
+                        Operand operand = instr.Operands[operandIdx];
+                        if (!operand.Value.HasValue)
+                        {
+                            string sym = TrimIndexer(operand.SymbolName);
+                            Debug.Assert(sym != null);
+                            operand.Value = symbols[sym].Address;
+                        }
                     }
 
-                    var instr = (Instruction)line;
                     var operands = instr.Operands;
                     byte[] binInstr = null;
                     switch (instr.Format)
@@ -171,32 +276,21 @@ namespace SICXE
                             break;
                         case InstructionFormat.Format3:
                         case InstructionFormat.Format4:
-                            binInstr = AssembleFormats34(instr);
+                            binInstr = AssembleFormats34(instr, instr.Address.Value + (int)instr.Format, @base);
                             binary[lineIdx] = binInstr;
                             break;
                     }
-
                 }
             }
-
-            donePassOne = true;
-            return true;
-        }
-
-        bool donePassTwo = false;
-        private bool PassTwo()
-        {
-            if (donePassTwo)
-            {
-                throw new InvalidOperationException("Pass two has already been done!");
-            }
-
-
+            
+            if (entryPoint != null)
+                outputBinary.EntryPoint = entryPoint.Address.Value;
 
             donePassTwo = true;
             return true;
         }
 
+        // Called during pass two (but could be called during pass one!)
         private byte[] AssembleFormat2(Instruction instr)
         {
             if (instr.Format != InstructionFormat.Format2)
@@ -211,8 +305,8 @@ namespace SICXE
             return ret;
         }
 
-        // todo: change this to bool TryAssembleFormats32(...) and remove most exceptions this can throw.
-        private byte[] AssembleFormats34(Instruction instr)
+        // Called during pass two.
+        private byte[] AssembleFormats34(Instruction instr, int programCounter, int baseRegister)
         {
             int oplen = (int)instr.Format;
 
@@ -229,26 +323,79 @@ namespace SICXE
                 var firstOperand = instr.Operands[0];
 
                 // If it's a symbol, ensure we include it in the symbol table.
-                var sym = firstOperand.Symbol;
+                var sym = firstOperand.SymbolName;
                 if (sym != null)
-                    TouchSymbol(sym);
-
-                // Set the flags that don't require any calculation. We do the rest in pass two.
-                switch (firstOperand.AddressingMode)
                 {
-                    case AddressingMode.Indirect:
-                        binInstr[0] |= 2; // set N flag.
-                        break;
-                    case AddressingMode.Immediate:
-                        binInstr[0] |= 1; // set I flag.
-                        break;
-                    case AddressingMode.Indexed:
-                        binInstr[1] |= 0x80; // set X flag.
-                        break;
+                    sym = TrimIndexer(sym);
+                    TouchSymbol(sym);
                 }
 
-                // Leave filling in of displacement until pass two.
-                return binInstr;
+
+                // Set flags that don't require knowledge of the displacement, N I X.
+                AddressingMode mode = firstOperand.AddressingMode;
+                bool indirect = mode.HasFlag(AddressingMode.Indirect);
+                bool immediate = mode.HasFlag(AddressingMode.Immediate);
+                bool indexed = mode.HasFlag(AddressingMode.Indexed);
+                if (indirect)
+                {
+                    binInstr[0] |= 2; // Set N flag.
+                }
+                if (immediate)
+                {
+                    binInstr[0] |= 1; // Set I flag.
+                }
+                if (indexed)
+                {
+                    binInstr[1] |= 0x80; // Set X flag.
+                }
+
+                // Use extended addressing, if it is indicated.
+                int disp = firstOperand.Value.Value;
+                if (mode.HasFlag(AddressingMode.Extended))
+                {
+                    // Use the absolute address as the displacement, and set the E flag.
+                    if (immediate)
+                    {
+                        if (disp < 0)
+                            throw new ArgumentException("Displacement cannot be negative using immediate addressing!");
+                        const int MAX_F4_DISP = 1 << 20; // untested.
+                        if (disp > MAX_F4_DISP)
+                            throw new ArgumentException($"Displacement is too large: maximum is {MAX_F4_DISP}.");
+                    }
+                    // ni xbpe
+                    // 21 8421
+                    binInstr[1] |= 0x10; // Set E flag.
+                    InsertDisplacement(binInstr, disp);
+                    return binInstr;
+                }
+
+                // Try using program-counter relative addressing.
+                const int MIN_PC_DISP = -(1 << 11); // untested.
+                const int MAX_PC_DISP = 1 << 11;
+                disp = programCounter - disp; // disp now represents the offset between the operand's value and the program counter.
+                if (disp >= MIN_PC_DISP && disp <= MAX_PC_DISP)
+                {
+                    // PC-relative addressing is valid.
+                    binInstr[1] |= 0x20; // Set P flag.
+                    InsertDisplacement(binInstr, disp);
+                    return binInstr;
+                }
+
+                // PC-relative addressing failed. Try base-relative addressing.
+                // Base-relative addressing will work at execution time only if the value of the base register matches the 'baseRegister' parameter of this method.
+                disp = firstOperand.Value.Value - baseRegister;
+                const int MIN_BASE_DISP = 0;
+                const int MAX_BASE_DISP = 1 << 12; // untested.
+                if (disp >= MIN_BASE_DISP && disp <= MAX_BASE_DISP)
+                {
+                    // Base-relative addressing is valid.
+                    binInstr[1] |= 0x40; // Set B flag.
+                    InsertDisplacement(binInstr, disp);
+                    return binInstr;
+                }
+
+                throw new ArgumentException($"Could not assemble format 3 instruction using displacement 0x{firstOperand.Value.Value.ToString("X")}.");
+
             }
 
             if (opcount == 0)
@@ -262,6 +409,48 @@ namespace SICXE
                 // ni=11, rest zero?
             }
             throw new ArgumentException($"Too many operands for format {oplen} instruction {instr.ToString()}.");
+        }
+
+        private static void InsertDisplacement(byte[] instruction, int displacement) // untested
+        {
+            int len = instruction.Length;
+            byte[] dispBytes;
+            switch (len)
+            {
+                case 3:
+                    dispBytes = EncodeTwosComplement(displacement, 12);
+                    Debug.Assert(dispBytes.Length == 2, "encodetwoscomplement gave us wrong number of bytes!");
+                    Debug.Assert((instruction[1] & 0b000011) == 0, "disp bits are already set in instruction!");
+                    Debug.Assert(instruction[2] == 0, "disp bits are already set in instruction!");
+                    instruction[2] = dispBytes[0];
+                    instruction[1] |= dispBytes[1];
+                    break;
+                case 4:
+                    dispBytes = EncodeTwosComplement(displacement, 20);
+                    Debug.Assert(dispBytes.Length == 3, "encodetwoscomplement gave us wrong number of bytes!");
+                    Debug.Assert((instruction[1] & 0b000011) == 0, "disp bits are already set in instruction!");
+                    Debug.Assert(instruction[2] == 0, "disp bits are already set in instruction!");
+                    Debug.Assert(instruction[3] == 0, "disp bits are already set in instruction!");
+                    instruction[3] = dispBytes[0];
+                    instruction[2] = dispBytes[1];
+                    instruction[1] |= dispBytes[2];
+                    break;
+                default:
+                    throw new ArgumentException("Instruction length must be 3 or 4 bytes in length.");
+            }
+        }
+
+        /// <summary>
+        /// Removes ",x" from the end of the string, if it is present.
+        /// </summary>
+        private static string TrimIndexer(string symbol)
+        {
+            const string INDEX_SUFFIX = ",x";
+            if (symbol.EndsWith(INDEX_SUFFIX))
+            {
+                return symbol.Substring(0, symbol.Length - INDEX_SUFFIX.Length);
+            }
+            return symbol;
         }
 
         /// <summary>
@@ -302,14 +491,14 @@ namespace SICXE
         {
             if (symbols.TryGetValue(name, out Symbol existing))
             {
-                if (existing.Value.HasValue)
+                if (existing.Address.HasValue)
                 {
-                    Console.WriteLine($"Symbol \"{name}\" already has value {existing.Value}!");
+                    Console.WriteLine($"Symbol \"{name}\" already has value {existing.Address}!");
                     return false;
                 }
-                existing.Value = value;
+                existing.Address = value;
             }
-            symbols.Add(name, new Symbol(name) { Value = value });
+            symbols.Add(name, new Symbol(name) { Address = value });
             return true;
         }
 
@@ -332,15 +521,25 @@ namespace SICXE
             byte high = (byte)((n & 0xff0000) >> 16);
             byte middle = (byte)((n & 0xff00) >> 8);
             byte low = (byte)(n & 0xff);
-            if (high == 0)
+
+            int retlen = (int)Math.Ceiling(bits / 8d);
+            var ret = new byte[retlen];
+            for (int b = 0; b < retlen; ++b)
             {
-                if (middle == 0)
-                {
-                    return new byte[] { low };
-                }
-                return new byte[] { low, middle };
+                int only = (0xff << (b * 8)) & n;
+                ret[b] = (byte)(only >> (b * 8));
             }
-            return new byte[] { low, middle, high };
+            return ret;
+
+            //if (high == 0)
+            //{
+            //    if (middle == 0)
+            //    {
+            //        return new byte[] { low };
+            //    }
+            //    return new byte[] { low, middle };
+            //}
+            //return new byte[] { low, middle, high };
 
         }
     }

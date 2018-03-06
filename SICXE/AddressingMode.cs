@@ -7,10 +7,10 @@ namespace SICXE
 
         Simple = 1,
         Indirect = 2,
-        Immediate = 3,
-        Indexed = 4,
-        RelativeToProgramCounter = 5,
-        RelativeToBase = 6,
-        Extended = 7
+        Immediate = 4,
+        Indexed = 8,
+        RelativeToProgramCounter = 16,
+        RelativeToBase = 32,
+        Extended = 64
     }
 }

@@ -74,6 +74,11 @@ namespace SICXE
             High = high;
         }
 
+        /// <summary>
+        /// The size of a SIC/XE word in bytes. This value is defined as 3.
+        /// </summary>
+        public static int Size => 3;
+
         public override string ToString()
         {
             return ((int)this).ToString();

@@ -22,14 +22,14 @@ namespace SICXE
             Name = name;
         }
 
-        public int? Value
+        public int? Address
         { get; set; }
 
         public override string ToString()
         {
-            if (Value.HasValue)
+            if (Address.HasValue)
             {
-                return $"{Name}={Value}";
+                return $"{Name}={Address}";
             }else
             {
                 return $"{Name}=<not set>";
