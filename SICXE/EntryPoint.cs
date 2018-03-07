@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 
 namespace SICXE
 {
@@ -8,10 +9,13 @@ namespace SICXE
     {
         static void Main(string[] args)
         {
-            //const string GOOGLE_DRIVE_PATH = @"C:\Users\geoff\Google Drive\";
-            const string GOOGLE_DRIVE_PATH = @"E:\Google Drive\";
-            
+            const string GOOGLE_DRIVE_PATH = @"C:\Users\geoff\Google Drive\";
+            //const string GOOGLE_DRIVE_PATH = @"E:\Google Drive\";
+
             const string PROGRAM_PATH = @"Intro to System Software\asms\copy-tix-add.asm";
+            const string LIST_DIRECTORY = @"Intro to System Software\lsts\";
+            Directory.CreateDirectory(GOOGLE_DRIVE_PATH + LIST_DIRECTORY);
+            string LIST_PATH = $"{LIST_DIRECTORY}{Path.GetFileNameWithoutExtension(PROGRAM_PATH)}.lst.txt";
             //const string PROGRAM_PATH = @"Intro to System Software\asms\small.txt";
 
             if (Program.TryParse(GOOGLE_DRIVE_PATH + PROGRAM_PATH, out Program myProgram))
@@ -20,15 +24,16 @@ namespace SICXE
                 {
                     Console.WriteLine($"{myProgram[i].ToString()}");
                 }
-
-                if (Assembler.TryAssemble(myProgram, out Binary myBinary))
+                var assembler = new Assembler(myProgram);
+                if (assembler.PassOne(GOOGLE_DRIVE_PATH + LIST_PATH))
                 {
-                    Console.WriteLine("\nAssembly succeeded.");
+                    Console.WriteLine("\nAssembly pass one succeeded.");
                 }
                 else
                 {
-                    Console.WriteLine("\nAssembly failed.");
+                    Console.WriteLine("\nAssembly pass one failed.");
                 }
+
 
                 //var myMachine = new vsic.Machine();
             }

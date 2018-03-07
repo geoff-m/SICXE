@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using System.Diagnostics;
 
 namespace SICXE
 {
@@ -16,6 +18,25 @@ namespace SICXE
         public Segment[] Segments { get { return segments.ToArray(); } }
 
         public bool AddSegment(Segment s) { return segments.Add(s); }
+
+        /// <summary>
+        /// Creates a listing file that represents the binary.
+        /// </summary>
+        /// <param name="path"></param>
+        public void WriteLST(string path)
+        {
+            
+        }
+
+        /// <summary>
+        /// Creates an OBJ file for loading into a SIC/XE simulator.
+        /// </summary>
+        /// <param name="path"></param>
+        public void WriteOBJ(string path)
+        {
+
+        }
+
 
         public override string ToString()
         {

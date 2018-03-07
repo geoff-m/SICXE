@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Diagnostics;
+using System.IO;
 
 namespace SICXE
 {
@@ -39,7 +40,7 @@ namespace SICXE
 
         Program prog;
         Binary outputBinary;
-        private Assembler(Program p)
+        public Assembler(Program p)
         {
             prog = p;
             outputBinary = new Binary();
@@ -70,19 +71,34 @@ namespace SICXE
         /// <summary>
         /// Takes account of all symbols declared or referenced, and computes the total length of the assembled binary.
         /// </summary>
+        /// <param name="lstPath">The path of the file to which a listing of the partially assembled program will be written. If the file does not exist, it will be created. If null, no file is written.</param>
         /// <returns>True if assembly can continue. False on failure.</returns>
-        private bool PassOne()
+        public bool PassOne(string lstPath = null)
         {
             if (donePassOne)
             {
                 // This indicates a bug.
                 throw new InvalidOperationException("Pass one has already been done!");
             }
+            StreamWriter writer = null;
+            if (lstPath != null)
+            {
+                writer = new StreamWriter(lstPath, false);
+                writer.WriteLine("************************************************");
+                writer.WriteLine("Chuniversity of Fourth Florida: Sick/XD Assembler");
+                writer.WriteLine($"Version date {_BUILD_DATE.ToShortDateString()}");
+                var now = DateTime.Now;
+                writer.WriteLine($"account: {Environment.UserName}; {now.ToShortDateString()} {now.ToLongTimeString()}");
+                writer.WriteLine("************************************************");
+                writer.WriteLine("ASSEMBLER REPORT");
+                writer.WriteLine("----------------");
+                writer.WriteLine("Line\tAddress\tSource");
+                writer.WriteLine("----\t-------\t-------------------");
+            }
 
             int bytesSoFar = 0;
 
             var currentSegment = new Segment();
-            //var binary = new byte[prog.Count][];
             var binary = new List<byte[]>();
 
             symbols = new Dictionary<string, Symbol>();
@@ -194,13 +210,15 @@ namespace SICXE
                                 Console.WriteLine("START directive must be followed by an address!");
                                 return false;
                             }
-                            if (int.TryParse(dir.Value, out val))
+                            if (int.TryParse(dir.Value, System.Globalization.NumberStyles.HexNumber, null, out val))
                             {
                                 startAddress = val;
                                 currentSegment = new Segment
                                 {
                                     BaseAddress = val
                                 };
+
+                                line.Address = 0; // by definition.
                             }
                             else
                             {
@@ -233,6 +251,7 @@ namespace SICXE
                                 TouchSymbol(dir.Value);
                                 entryPoint = symbols[dir.Value];
                             }
+                            line.Address = bytesSoFar;
                             break;
                     }
                 }
@@ -243,7 +262,7 @@ namespace SICXE
                         Console.WriteLine("Code cannot appear before START directive.");
                         return false;
                     }
-                        
+
                     if (!firstInstructionAddress.HasValue)
                         firstInstructionAddress = bytesSoFar + startAddress;
 
@@ -260,6 +279,26 @@ namespace SICXE
                     bytesSoFar += (int)instr.Format;
                     instructionBytes += (int)instr.Format;
                 }
+
+                if (writer != null)
+                {
+                    int separation = prog.LongestLabel;
+                    if (separation < 1)
+                        separation = 1;
+                    string address = line.Address.HasValue ? (startAddress.Value + line.Address.Value).ToString("X6") : "??????";
+                    if (line.Label != null)
+                        writer.WriteLine($"{lineIdx.ToString("D3")}\t\t{address}\t{line.ToString(separation)}    \t{line.Comment}");
+                    else
+                    {
+                        writer.WriteLine($"{lineIdx.ToString("D3")}\t\t{address}\t{line.ToString()}    \t{line.Comment}");
+                    }
+
+                }
+            }
+
+            if (writer != null)
+            {
+                writer.Dispose();
             }
 
             donePassOne = true;
@@ -269,7 +308,7 @@ namespace SICXE
         int @base; // todo: implement base directive.
         bool donePassTwo = false;
         // Generates displacements.
-        private bool PassTwo()
+        public bool PassTwo()
         {
             if (donePassTwo)
             {
@@ -589,6 +628,21 @@ namespace SICXE
             //}
             //return new byte[] { low, middle, high };
 
+        }
+
+        /*
+         * ar version = Assembly.GetEntryAssembly().GetName().Version;
+var buildDateTime = new DateTime(2000, 1, 1).Add(new TimeSpan(
+TimeSpan.TicksPerDay * version.Build + // days since 1 January 2000
+TimeSpan.TicksPerSecond * 2 * version.Revision)); // seconds since midnight, (multiply by 2 to get original)
+         * 
+         * 
+         */
+        static readonly DateTime _BUILD_DATE;
+        static Assembler()
+        {
+            var version = System.Reflection.Assembly.GetEntryAssembly().GetName().Version;
+            _BUILD_DATE = new DateTime(2000, 1, 1).Add(new TimeSpan(TimeSpan.TicksPerDay * version.Build + 2 * TimeSpan.TicksPerSecond * version.Revision));
         }
     }
 }

@@ -12,6 +12,9 @@ namespace SICXE
         public string Label
         { get; set; }
 
+        public string Comment
+        { get; set; }
+
         /// <summary>
         /// The address a line has in the assembled binary.
         /// </summary>
@@ -107,5 +110,13 @@ namespace SICXE
             return false;
         }
 
+        //        public abstract string Verbatim;
+
+        /// <summary>
+        /// Converts this line to a string representation, using the specified amount of whitespace after the label, if it is present.
+        /// </summary>
+        /// <param name="space">The number of spaces to insert after the label.</param>
+        /// <returns></returns>
+        public abstract string ToString(int space);
     }
 }

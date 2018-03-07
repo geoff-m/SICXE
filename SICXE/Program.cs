@@ -79,6 +79,13 @@ namespace SICXE
         }
         #endregion
 
+
+        /// <summary>
+        /// Gets the length of the longest symbol name in this program. Used for formatting listing files.
+        /// </summary>
+        public int LongestLabel
+        { get; private set; }
+
         public static bool TryParse(string path, out Program result)
         {
             StreamReader read = null;
@@ -118,6 +125,10 @@ namespace SICXE
                     if (Line.TryParse(textLine, out Line line))
                     {
                         prog.Add(line);
+
+                        if (line.Label != null && prog.LongestLabel < line.Label.Length)
+                            prog.LongestLabel = line.Label.Length;
+
                         Debug.WriteLine(line.ToString());
                     }
                     else

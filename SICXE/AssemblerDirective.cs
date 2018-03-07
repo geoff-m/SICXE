@@ -66,16 +66,34 @@ namespace SICXE
                     throw new NotImplementedException($"Assembler directive \"{tokens[0]}\" is not supported!");
 
             }
+
+            result.Comment = string.Join(" ", tokens, 2, tokens.Length - 2);
+
             return true;
         }
 
         public override string ToString()
         {
+#if DEBUG
             if (Label != null)
-            {
                 return $"{Label}: {Directive.ToString()} {Value}";
-            }
             return $"{Directive.ToString()} {Value}";
+#else
+            if (Label != null)
+                return $"{Label}\t{Directive.ToString()} {Value}";
+            return $"\t\t{Directive.ToString()} {Value}";
+#endif
+        }
+
+        public override string ToString(int space)
+        {
+#if DEBUG
+            return ToString();
+#else
+            if (Label != null)
+                return $"{Label}{new string(' ', space - Label.Length + 2)}{Directive.ToString()} {Value}";
+            return $"{new string(' ', space)}{ Directive.ToString()} {Value}";
+#endif
         }
     }
 }

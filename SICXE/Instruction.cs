@@ -67,10 +67,11 @@ namespace SICXE
                     return $"{prefix}{SymbolName}(={Value})";
                 }
                 return $"{prefix}{SymbolName}";
-
             }
             if (hasValue)
             {
+                if (Type == OperandType.Register)
+                    return $"{prefix}{((Register)Value).ToString()}";
                 return $"{prefix}{Value}";
             }
             return $"{prefix}??";
@@ -86,7 +87,7 @@ namespace SICXE
         // typedef Mnemonic int
         // #define ADD 0x18
 
-            
+
         public enum Mnemonic
         {
             // Arithmetic
@@ -246,9 +247,6 @@ namespace SICXE
 
             if (!char.IsDigit(mnemonic[0]) && Enum.TryParse(mnemonic, true, out Mnemonic m)) // true to ignore case.
             {
-                //if (m == Mnemonic.RMO)
-                //    Debugger.Break();
-
                 var ret = new Instruction(m);
 
                 if (sic)
@@ -312,10 +310,11 @@ namespace SICXE
                 //}
 
                 // Copy in all the operands.
-                for (int argIdx = 1; argIdx < tokens.Length && argIdx <= operandCount; ++argIdx)
+                int tokenIdx;
+                for (tokenIdx = 1; tokenIdx < tokens.Length && tokenIdx <= operandCount; ++tokenIdx)
                 {
-                    var operand = ret.Operands[argIdx - 1];
-                    var token = tokens[argIdx];
+                    var operand = ret.Operands[tokenIdx - 1];
+                    var token = tokens[tokenIdx];
                     //todo: switch to something like this instead if this foreach ...if (operand.Type == OperandType.)
 
                     // Parse the operand as the type we expect.
@@ -368,6 +367,8 @@ namespace SICXE
 
                 } // for each operand.
 
+                ret.Comment = string.Join(" ", tokens, tokenIdx, tokens.Length - tokenIdx);
+
                 result = ret;
                 return true;
             }
@@ -376,13 +377,40 @@ namespace SICXE
             return false;
         }
 
+
+        //public override string Verbatim
+        //{
+        //    get;
+        //    private set;
+        //}
+
         public override string ToString()
         {
+#if DEBUG
             if (Label != null)
-            {
                 return $"{Label}: {Operation.ToString()} {string.Join(",", Operands)}";
-            }
             return $"{Operation.ToString()} {string.Join(",", Operands)}";
+#else
+            if (Label != null)
+                return $"{Label}\t{Operation.ToString()} {string.Join(",", Operands)}";
+            return $"\t\t{Operation.ToString()} {string.Join(",", Operands)}";
+#endif
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="space">The number of spaces to insert after the label, if it is not null.</param>
+        /// <returns></returns>
+        public override string ToString(int space)
+        {
+#if DEBUG
+            return ToString();
+#else
+            if (Label != null)
+                return $"{Label}{new string(' ', space - Label.Length + 2)}{Operation.ToString()} {string.Join(",", Operands)}";
+            return $"{new string(' ', space)}{Operation.ToString()} {string.Join(",", Operands)}";
+#endif
         }
     }
 }
