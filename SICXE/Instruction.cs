@@ -404,13 +404,9 @@ namespace SICXE
         /// <returns></returns>
         public override string ToString(int space)
         {
-#if DEBUG
-            return ToString();
-#else
             if (Label != null)
                 return $"{Label}{new string(' ', space - Label.Length + 2)}{Operation.ToString()} {string.Join(",", Operands)}";
-            return $"{new string(' ', space)}{Operation.ToString()} {string.Join(",", Operands)}";
-#endif
+            return $"{new string(' ', space + 2)}{Operation.ToString()} {string.Join(",", Operands)}";
         }
     }
 }

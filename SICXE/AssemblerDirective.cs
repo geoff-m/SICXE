@@ -87,13 +87,9 @@ namespace SICXE
 
         public override string ToString(int space)
         {
-#if DEBUG
-            return ToString();
-#else
             if (Label != null)
                 return $"{Label}{new string(' ', space - Label.Length + 2)}{Directive.ToString()} {Value}";
-            return $"{new string(' ', space)}{ Directive.ToString()} {Value}";
-#endif
+            return $"{new string(' ', space + 2)}{Directive.ToString()} {Value}";
         }
     }
 }

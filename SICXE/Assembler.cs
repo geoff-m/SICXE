@@ -88,12 +88,12 @@ namespace SICXE
                 writer.WriteLine("Chuniversity of Fourth Florida: Sick/XD Assembler");
                 writer.WriteLine($"Version date {_BUILD_DATE.ToShortDateString()}");
                 var now = DateTime.Now;
-                writer.WriteLine($"account: {Environment.UserName}; {now.ToShortDateString()} {now.ToLongTimeString()}");
+                writer.WriteLine($"Username: {Environment.UserName}; {now.ToShortDateString()} {now.ToLongTimeString()}");
                 writer.WriteLine("************************************************");
                 writer.WriteLine("ASSEMBLER REPORT");
                 writer.WriteLine("----------------");
                 writer.WriteLine("Line\tAddress\tSource");
-                writer.WriteLine("----\t-------\t-------------------");
+                writer.WriteLine("----\t-------\t-----------------------");
             }
 
             int bytesSoFar = 0;
@@ -286,12 +286,7 @@ namespace SICXE
                     if (separation < 1)
                         separation = 1;
                     string address = line.Address.HasValue ? (startAddress.Value + line.Address.Value).ToString("X6") : "??????";
-                    if (line.Label != null)
-                        writer.WriteLine($"{lineIdx.ToString("D3")}\t\t{address}\t{line.ToString(separation)}    \t{line.Comment}");
-                    else
-                    {
-                        writer.WriteLine($"{lineIdx.ToString("D3")}\t\t{address}\t{line.ToString()}    \t{line.Comment}");
-                    }
+                    writer.WriteLine($"{lineIdx.ToString("D3")}\t\t{address}\t{line.ToString(separation)}    \t{line.Comment}");
 
                 }
             }
