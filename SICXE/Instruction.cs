@@ -193,10 +193,10 @@ namespace SICXE
                 case Mnemonic.OR:
                 case Mnemonic.COMP:
                 case Mnemonic.J:
+                case Mnemonic.JSUB:
                 case Mnemonic.JLT:
                 case Mnemonic.JGT:
                 case Mnemonic.JEQ:
-                case Mnemonic.JSUB:
                 case Mnemonic.TIX:
                 case Mnemonic.TD:
                 case Mnemonic.WD:
@@ -222,6 +222,7 @@ namespace SICXE
                     break;
                 case Mnemonic.RSUB:
                     Operands = new List<Operand>();
+                    Format = InstructionFormat.Format3Or4;
                     break;
 
                 default:
@@ -264,136 +265,141 @@ namespace SICXE
                 mnemonic = mnemonic.Substring(1);
             }
 
-            if (!char.IsDigit(mnemonic[0]) && Enum.TryParse(mnemonic, true, out Mnemonic m)) // true to ignore case.
+            if (char.IsDigit(mnemonic[0]) || !Enum.TryParse(mnemonic, true, out Mnemonic m)) // true to ignore case.
             {
-                var ret = new Instruction(m);
+                result = null;
+                return false;
+            }
 
-                if (sic)
-                    ret.Flags = 0;
+            var ret = new Instruction(m);
 
-                if (ret.Format == InstructionFormat.NotSet || (ret.Format == InstructionFormat.Format3Or4 && fmt == InstructionFormat.Format4))
+            if (sic)
+                ret.Flags = 0;
+
+            if (ret.Format == InstructionFormat.NotSet || (ret.Format == InstructionFormat.Format3Or4 && fmt == InstructionFormat.Format4))
+            {
+                ret.Format = fmt;
+            }
+            else
+            {
+                if (fmt != InstructionFormat.NotSet)
                 {
-                    ret.Format = fmt;
+                    // Instruction already knows its format but we planned to set it to something!
+                    Console.WriteLine($"Instruction {m} must be format {(int)ret.Format} (prefix indicated format {(int)fmt})!");
+                    result = null;
+                    return false;
                 }
-                else
+            }
+
+            if (ret.Format == InstructionFormat.Format3Or4)
+                ret.Format = InstructionFormat.Format3;
+
+            Debug.Assert(ret.Format != InstructionFormat.NotSet, "Instruction's format should be set by this point.");
+
+            if (tokens.Length >= 2)
+            {
+                var args = tokens[1];
+                int commaIdx = args.IndexOf(',');
+                if (commaIdx >= 0)
                 {
-                    if (fmt != InstructionFormat.NotSet)
+                    var afterComma = args.Substring(commaIdx + 1);
+                    if (ret.Format == InstructionFormat.Format2)
                     {
-                        // Instruction already knows its format but we planned to set it to something!
-                        Console.WriteLine($"Instruction {m} must be format {(int)ret.Format} (prefix indicated format {(int)fmt})!");
-                        result = null;
-                        return false;
+                        if (ret.Operands.Count == 2)
+                        {
+                            var splitOnComma = new string[tokens.Length + 1];
+                            splitOnComma[0] = tokens[0];
+                            splitOnComma[1] = args.Substring(0, commaIdx);
+                            splitOnComma[2] = args.Substring(commaIdx + 1);
+                            Array.Copy(tokens, 2, splitOnComma, 3, tokens.Length - 2);
+                            tokens = splitOnComma;
+                        }
+                    }
+                    else
+                    {
+                        if (afterComma != "x")
+                        {
+                            Console.WriteLine($"Unexpected ',' in {string.Join(" ", tokens)}");
+                            result = null;
+                            return false;
+                        }
                     }
                 }
+            }
 
-                if (ret.Format == InstructionFormat.Format3Or4)
-                    ret.Format = InstructionFormat.Format3;
+            int operandCount = ret.Operands.Count;
+            //if (tokens.Length - 1 != operandCount)  Extra tokens are usually just comments, so this warning is pretty useless.
+            //{
+            //    Debug.WriteLine($"Warning: Operation {mnemonic.ToString()} takes {operandCount} operands but {tokens.Length - 1} were given.");
+            //    // In this method, this isn't a showstopper-- we just ignore extra tokens, or leave operands null if there aren't enough.
+            //    // Could be comment.
+            //}
 
-                if (tokens.Length >= 2)
+            // Copy in all the operands.
+            int tokenIdx;
+            for (tokenIdx = 1; tokenIdx < tokens.Length && tokenIdx <= operandCount; ++tokenIdx)
+            {
+                var operand = ret.Operands[tokenIdx - 1];
+                var token = tokens[tokenIdx];
+                //todo: switch to something like this instead if this foreach ...if (operand.Type == OperandType.)
+
+                // Parse the operand as the type we expect.
+                switch (operand.Type)
                 {
-                    var args = tokens[1];
-                    int commaIdx = args.IndexOf(',');
-                    if (commaIdx >= 0)
-                    {
-                        var afterComma = args.Substring(commaIdx + 1);
-                        if (ret.Format == InstructionFormat.Format2)
+                    case OperandType.Device:
+                    case OperandType.Address:
+                        // Acceptable formats:
+                        //  Number.
+                        //  Number with either @ or # prefix.
+                        //  Symbol (any alphanumeric string).
+                        switch (token[0])
                         {
-                            if (ret.Operands.Count == 2)
-                            {
-                                var splitOnComma = new string[tokens.Length + 1];
-                                splitOnComma[0] = tokens[0];
-                                splitOnComma[1] = args.Substring(0, commaIdx);
-                                splitOnComma[2] = args.Substring(commaIdx + 1);
-                                Array.Copy(tokens, 2, splitOnComma, 3, tokens.Length - 2);
-                                tokens = splitOnComma;
-                            }
+                            case '@':
+                                operand.AddressingMode = AddressingMode.Indirect;
+                                token = token.Substring(1);
+                                break;
+                            case '#':
+                                operand.AddressingMode = AddressingMode.Immediate;
+                                token = token.Substring(1);
+                                break;
+                        }
+
+                        // Interpret the remainder of the token as an address, if possible, or else a symbol.
+                        if (int.TryParse(token, out int addr))
+                        {
+                            operand.Value = addr;
                         }
                         else
                         {
-                            if (afterComma != "x")
-                            {
-                                Console.WriteLine($"Unexpected ',' in {string.Join(" ", tokens)}");
-                                result = null;
-                                return false;
-                            }
+                            // todo: check that token is valid for a symbol name and return false if it isn't.
+                            operand.SymbolName = token;
                         }
-                    }
+                        break;
+                    case OperandType.Register:
+                        if (Enum.TryParse(token, true, out Register reg))
+                        {
+                            operand.Value = (int)reg; // Casting Register to int.
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Could not parse {token} as a register.");
+                            result = null;
+                            return false;
+                        }
+                        break;
                 }
 
-                int operandCount = ret.Operands.Count;
-                //if (tokens.Length - 1 != operandCount)  Extra tokens are usually just comments, so this warning is pretty useless.
-                //{
-                //    Debug.WriteLine($"Warning: Operation {mnemonic.ToString()} takes {operandCount} operands but {tokens.Length - 1} were given.");
-                //    // In this method, this isn't a showstopper-- we just ignore extra tokens, or leave operands null if there aren't enough.
-                //    // Could be comment.
-                //}
+                Debug.WriteLine($"Parsed {token} as {operand.Type.ToString()}.");
 
-                // Copy in all the operands.
-                int tokenIdx;
-                for (tokenIdx = 1; tokenIdx < tokens.Length && tokenIdx <= operandCount; ++tokenIdx)
-                {
-                    var operand = ret.Operands[tokenIdx - 1];
-                    var token = tokens[tokenIdx];
-                    //todo: switch to something like this instead if this foreach ...if (operand.Type == OperandType.)
+            } // for each operand.
 
-                    // Parse the operand as the type we expect.
-                    switch (operand.Type)
-                    {
-                        case OperandType.Device:
-                        case OperandType.Address:
-                            // Acceptable formats:
-                            //  Number.
-                            //  Number with either @ or # prefix.
-                            //  Symbol (any alphanumeric string).
-                            switch (token[0])
-                            {
-                                case '@':
-                                    operand.AddressingMode = AddressingMode.Indirect;
-                                    token = token.Substring(1);
-                                    break;
-                                case '#':
-                                    operand.AddressingMode = AddressingMode.Immediate;
-                                    token = token.Substring(1);
-                                    break;
-                            }
+            ret.Comment = string.Join(" ", tokens, tokenIdx, tokens.Length - tokenIdx);
 
-                            // Interpret the remainder of the token as an address, if possible, or else a symbol.
-                            if (int.TryParse(token, out int addr))
-                            {
-                                operand.Value = addr;
-                            }
-                            else
-                            {
-                                // todo: check that token is valid for a symbol name and return false if it isn't.
-                                operand.SymbolName = token;
-                            }
-                            break;
-                        case OperandType.Register:
-                            if (Enum.TryParse(token, true, out Register reg))
-                            {
-                                operand.Value = (int)reg; // Casting Register to int.
-                            }
-                            else
-                            {
-                                Console.WriteLine($"Could not parse {token} as a register.");
-                                result = null;
-                                return false;
-                            }
-                            break;
-                    }
+            result = ret;
+            return true;
 
-                    Debug.WriteLine($"Parsed {token} as {operand.Type.ToString()}.");
 
-                } // for each operand.
 
-                ret.Comment = string.Join(" ", tokens, tokenIdx, tokens.Length - tokenIdx);
-
-                result = ret;
-                return true;
-            }
-
-            result = null;
-            return false;
         }
 
 

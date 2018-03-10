@@ -22,6 +22,7 @@ namespace SICXE
         const double CHANCE_NEW_SYMBOL = 0.25; // Chance a referenced symbol will be a newly created one instead of a preexisting one.
         const double CHANCE_INDIRECT = 0.25; // Chance indirect addressing will be used.
         const double CHANCE_IMMEDIATE = 0.25; // Chance immediate addressing will be used.
+        const double CHANCE_INDEXED = 0.2; // Chance indexed addressing will be used. // todo: implement me
         const double CHANCE_EXTENDED = 0.25; // Chance extended addressing will be used.
 
         const int MIN_WORD = -0xffffff;
@@ -49,7 +50,7 @@ namespace SICXE
             const double THRESHOLD = CHANCE_MEMORY * CHANCE_USE_SYMBOL;
             Console.WriteLine($"Generating about {(int)(lineCount * THRESHOLD)} symbols...");
             var names = new HashSet<string>();
-            for (int i=0; i < lineCount; ++i)
+            for (int i = 0; i < lineCount; ++i)
             {
                 if (r.NextDouble() < THRESHOLD)
                 {
@@ -66,13 +67,12 @@ namespace SICXE
         }
 
         System.Timers.Timer t;
-        
+
         private void TimerElapsed(object sender, EventArgs e)
         {
             long dLines = Interlocked.Read(ref linesProcessed);
             Interlocked.Exchange(ref linesProcessed, 0);
             double dTime = t.Interval / 1000d; // s
-            //Console.WriteLine($"Rate: {(int)(dLines / dTime)} lines/sec");
             OutputSameLine($"Rate: {(int)(dLines / dTime)} lines/sec");
         }
 
@@ -97,6 +97,13 @@ namespace SICXE
             GenerateSymbols(lines);
             var ret = new Program();
             t.Start();
+
+            ret.Add(new AssemblerDirective(AssemblerDirective.Mnemonic.START)
+            {
+                //Value = r.Next(0, 1 << 12).ToString()
+                Value = "0"
+            });
+
             for (int lineIdx = 0; lineIdx < lines; ++lineIdx)
             {
                 Line line;
@@ -120,7 +127,6 @@ namespace SICXE
                         sym.Define();
                     }
                     dir.Value = GetSmallishNumber().ToString();
-
                     line = dir;
                 }
                 else
@@ -149,7 +155,7 @@ namespace SICXE
                                 else
                                 {
                                     // Use immediate instead of symbol.
-                                    operand.Value = r.Next(MIN_WORD, MAX_WORD + 1);
+                                    operand.Value = r.Next(-0x7ff, 0x800);
                                 }
                                 // Choose direct/indirect.
                                 if (r.NextDouble() < CHANCE_INDIRECT)
@@ -174,6 +180,23 @@ namespace SICXE
                 Interlocked.Increment(ref linesProcessed);
             } // For each line in output program.
 
+            // Finally, append any symbols that are still undefined by this point.
+            foreach (var s in symbols)
+            {
+                if (!s.IsDefined)
+                {
+                    AssemblerDirective dir;
+                    if (r.NextDouble() < CHANCE_RESW)
+                        dir = new AssemblerDirective(AssemblerDirective.Mnemonic.WORD);
+                    else
+                        dir = new AssemblerDirective(AssemblerDirective.Mnemonic.RESW);
+                    dir.Label = s.Name;
+                    s.Define();
+                    dir.Value = GetSmallishNumber().ToString();
+                    ret.Add(dir);
+                }
+            }
+
             t.Stop();
 
             Console.WriteLine();
@@ -192,11 +215,11 @@ namespace SICXE
         {
             return symbols[r.Next(symbols.Count)].Name;
         }
-        
+
         private int GetSmallishNumber()
         {
             int b = r.Next(sizeof(int));
-            return r.Next() & ((1 << b)-1);
+            return r.Next() & ((1 << b) - 1);
         }
 
         /// <summary>
@@ -225,7 +248,7 @@ namespace SICXE
         {
             int len = r.Next(MINIMUM_SYMBOL_LENGTH, MAXIMUM_SYMBOL_LENGTH);
             var ret = new char[len];
-            for (int i=0; i<len; ++i)
+            for (int i = 0; i < len; ++i)
             {
                 ret[i] = (char)(r.Next(0, 26) + 'a');
             }

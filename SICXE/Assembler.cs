@@ -171,9 +171,13 @@ namespace SICXE
                             {
                                 label = line.Label;
                                 if (label != null)
-                                    TouchSymbol(label);
+                                {
+                                    //TouchSymbol(label);
+                                    if (!SetSymbolValue(label, bytesSoFar)) // is this correct?
+                                        return false;
+                                    symbols[label].Address = bytesSoFar;
+                                }
 
-                                symbols[label].Address = bytesSoFar;
                                 line.Address = bytesSoFar;
 
                                 // Finalize and push this segment and start a new one.
@@ -340,20 +344,40 @@ namespace SICXE
                 switch (instr.Format)
                 {
                     case InstructionFormat.Format1:
-                        Debug.Assert(operands.Count == 0, $"Error: Format 1 instruction takes no operands, but {string.Join(", ", operands)} was given!");
+                        if (operands.Count != 0)
+                        {
+                            ReportError($"Format 1 instruction takes no operands, but {string.Join(", ", operands)} was given!", instr);
+                            return false;
+                        }
                         binInstr = new byte[] { (byte)instr.Operation };
                         break;
                     case InstructionFormat.Format2:
-                        Debug.Assert(operands.Count == 1 || operands.Count == 2, $"Format 2 instruction takes 1 or 2 operands, but {string.Join(", ", operands)} was given!");
+                        if (!(operands.Count == 1 || operands.Count == 2))
+                        {
+                            ReportError($"Format 2 instruction takes 1 or 2 operands, but {string.Join(", ", operands)} was given!", instr);
+                            return false;
+                        }
                         binInstr = AssembleFormat2(instr);
                         break;
                     case InstructionFormat.Format3:
                     case InstructionFormat.Format4:
-                        binInstr = AssembleFormats34(instr, instr.Address.Value + (int)instr.Format, @base);
+                        try
+                        {
+                            binInstr = AssembleFormats34(instr, instr.Address.Value + (int)instr.Format, @base);
+                        }
+                        catch (ArgumentException ex)
+                        {
+                            ReportError(ex.Message, instr);
+                            return false;
+                        }
                         break;
                     default:
                         // This indicates a bug.
+#if DEBUG
                         throw new ArgumentException($"Instruction has a bad format.");
+#else
+                        ReportError("Instruction has a bad format.", instr);
+#endif
                 }
                 Array.Copy(binInstr, 0, codeSegment.Data, ip, binInstr.Length);
                 ip += binInstr.Length;
@@ -412,7 +436,6 @@ namespace SICXE
                     TouchSymbol(sym);
                 }
 
-
                 // Set flags that don't require knowledge of the displacement, N I X.
                 AddressingMode mode = firstOperand.AddressingMode;
                 bool indirect = mode.HasFlag(AddressingMode.Indirect);
@@ -442,7 +465,7 @@ namespace SICXE
                             throw new ArgumentException("Displacement cannot be negative using immediate addressing!");
                         const int MAX_F4_DISP = 1 << 20; // untested.
                         if (disp > MAX_F4_DISP)
-                            throw new ArgumentException($"Displacement is too large: maximum is {MAX_F4_DISP}.");
+                            throw new ArgumentException($"Displacement is too large for extended mode: maximum is {MAX_F4_DISP}.");
                     }
                     // ni xbpe
                     // 21 8421
@@ -489,6 +512,7 @@ namespace SICXE
                 // What should we expect addressing mode to be here?
                 // all flags zero?
                 // ni=11, rest zero?
+                return new byte[] { (byte)Instruction.Mnemonic.RSUB, 0, 0 };
             }
             throw new ArgumentException($"Too many operands for format {oplen} instruction {instr.ToString()}.");
         }
@@ -638,6 +662,15 @@ TimeSpan.TicksPerSecond * 2 * version.Revision)); // seconds since midnight, (mu
         {
             var version = System.Reflection.Assembly.GetEntryAssembly().GetName().Version;
             _BUILD_DATE = new DateTime(2000, 1, 1).Add(new TimeSpan(TimeSpan.TicksPerDay * version.Build + 2 * TimeSpan.TicksPerSecond * version.Revision));
+        }
+
+        private void ReportError(string message, Line line)
+        {
+            Console.WriteLine($"\nError: {message}");
+            if (line != null)
+            {
+                Console.WriteLine($"Line {line.Number}:\n\t{line.ToString()}");
+            }
         }
     }
 }
