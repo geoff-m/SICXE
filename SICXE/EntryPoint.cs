@@ -9,6 +9,8 @@ namespace SICXE
     {
         static void Main(string[] args)
         {
+            TestProgramParser();
+
             //const string GOOGLE_DRIVE_PATH = @"C:\Users\geoff\Google Drive\";
             const string GOOGLE_DRIVE_PATH = @"E:\Google Drive\";
 
@@ -34,10 +36,44 @@ namespace SICXE
                     Console.WriteLine("\nAssembly pass one failed.");
                 }
 
-
                 //var myMachine = new vsic.Machine();
             }
 
+        }
+
+        static void TestProgramParser()
+        {
+            const string TEST_PROGRAM_PATH = "test-prog.txt";
+            const int TEST_PROGRAM_SIZE = 100000;
+            StreamWriter write = null;
+            try
+            {
+                write = new StreamWriter(TEST_PROGRAM_PATH, false);
+                var pgen = new RandomProgramGenerator();
+                Console.WriteLine($"Generating random {TEST_PROGRAM_SIZE} line program...");
+                var rp = pgen.MakeRandomProgram(TEST_PROGRAM_SIZE);
+                foreach (var line in rp)
+                {
+                    //Console.WriteLine(line.ToString(10));
+                    write.WriteLine(line.ToString(10));
+                }
+                write.Dispose();
+
+                Console.WriteLine($"Done.\nParsing...");
+                if (Program.TryParse(TEST_PROGRAM_PATH, out Program parsed))
+                {
+                    Console.WriteLine($"Parsing {TEST_PROGRAM_PATH} succeeded.");
+                }
+                 else
+                {
+                    Console.WriteLine($"Parsing {TEST_PROGRAM_PATH} failed.");
+                }
+            }
+            finally
+            {
+                if (write != null)
+                    write.Dispose();
+            }
         }
     }
 }

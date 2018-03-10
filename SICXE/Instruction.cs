@@ -91,7 +91,6 @@ namespace SICXE
         public enum Mnemonic
         {
             // Arithmetic
-            dog = 123,
             ADD = 0x18,
             ADDR = 0x90,
             SUB = 0x1C,
@@ -175,17 +174,35 @@ namespace SICXE
                 case Mnemonic.LDA:
                 case Mnemonic.LDX:
                 case Mnemonic.LDS:
+                case Mnemonic.LDT:
+                case Mnemonic.LDB:
+                case Mnemonic.LDL:
+                case Mnemonic.LDCH:
+                case Mnemonic.STCH:
                 case Mnemonic.STA:
                 case Mnemonic.STX:
                 case Mnemonic.STS:
+                case Mnemonic.STT:
+                case Mnemonic.STB:
+                case Mnemonic.STL:
                 case Mnemonic.ADD:
                 case Mnemonic.SUB:
                 case Mnemonic.MUL:
+                case Mnemonic.DIV:
+                case Mnemonic.AND:
+                case Mnemonic.OR:
                 case Mnemonic.COMP:
+                case Mnemonic.J:
                 case Mnemonic.JLT:
+                case Mnemonic.JGT:
+                case Mnemonic.JEQ:
+                case Mnemonic.JSUB:
                 case Mnemonic.TIX:
+                case Mnemonic.TD:
+                case Mnemonic.WD:
+                case Mnemonic.RD:
                     Operands = new List<Operand>() { new Operand(OperandType.Address) }.AsReadOnly();
-                    Format = InstructionFormat.Format3;
+                    Format = InstructionFormat.Format3Or4;
                     break;
                 case Mnemonic.CLEAR:
                     Operands = new List<Operand>() { new Operand(OperandType.Register) }.AsReadOnly();
@@ -198,6 +215,8 @@ namespace SICXE
                 case Mnemonic.DIVR:
                 case Mnemonic.MULR:
                 case Mnemonic.TIXR:
+                case Mnemonic.SHIFTL:
+                case Mnemonic.SHIFTR:
                     Operands = new List<Operand>() { new Operand(OperandType.Register), new Operand(OperandType.Register) }.AsReadOnly();
                     Format = InstructionFormat.Format2;
                     break;
@@ -252,12 +271,9 @@ namespace SICXE
                 if (sic)
                     ret.Flags = 0;
 
-                if (ret.Format == InstructionFormat.NotSet)
+                if (ret.Format == InstructionFormat.NotSet || (ret.Format == InstructionFormat.Format3Or4 && fmt == InstructionFormat.Format4))
                 {
-                    if (fmt != InstructionFormat.NotSet)
-                    {
-                        ret.Format = fmt;
-                    }
+                    ret.Format = fmt;
                 }
                 else
                 {
@@ -269,6 +285,9 @@ namespace SICXE
                         return false;
                     }
                 }
+
+                if (ret.Format == InstructionFormat.Format3Or4)
+                    ret.Format = InstructionFormat.Format3;
 
                 if (tokens.Length >= 2)
                 {
@@ -386,14 +405,19 @@ namespace SICXE
 
         public override string ToString()
         {
+            string prefix;
+            if (Format == InstructionFormat.Format4)
+                prefix = "+";
+            else
+                prefix = "";
 #if DEBUG
             if (Label != null)
-                return $"{Label}: {Operation.ToString()} {string.Join(",", Operands)}";
-            return $"{Operation.ToString()} {string.Join(",", Operands)}";
+                return $"{Label}: {prefix}{Operation.ToString()} {string.Join(",", Operands)}";
+            return $"{prefix}{Operation.ToString()} {string.Join(",", Operands)}";
 #else
             if (Label != null)
-                return $"{Label}\t{Operation.ToString()} {string.Join(",", Operands)}";
-            return $"\t\t{Operation.ToString()} {string.Join(",", Operands)}";
+                return $"{Label}\t{prefix}{Operation.ToString()} {string.Join(",", Operands)}";
+            return $"\t\t{prefix}{Operation.ToString()} {string.Join(",", Operands)}";
 #endif
         }
 
@@ -404,9 +428,14 @@ namespace SICXE
         /// <returns></returns>
         public override string ToString(int space)
         {
+            string prefix;
+            if (Format == InstructionFormat.Format4)
+                prefix = "+";
+            else
+                prefix = "";
             if (Label != null)
-                return $"{Label}{new string(' ', space - Label.Length + 2)}{Operation.ToString()} {string.Join(",", Operands)}";
-            return $"{new string(' ', space + 2)}{Operation.ToString()} {string.Join(",", Operands)}";
+                return $"{Label}{new string(' ', space - Label.Length + 2)}{prefix}{Operation.ToString()} {string.Join(",", Operands)}";
+            return $"{new string(' ', space + 2)}{prefix}{Operation.ToString()} {string.Join(",", Operands)}";
         }
     }
 }
