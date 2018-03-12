@@ -291,6 +291,7 @@ namespace SICXE
                 }
             }
 
+            // If format 4 has not been indicated by this point, assume 3/4 instructions are 3.
             if (ret.Format == InstructionFormat.Format3Or4)
                 ret.Format = InstructionFormat.Format3;
 
@@ -327,21 +328,14 @@ namespace SICXE
                 }
             }
 
-            int operandCount = ret.Operands.Count;
-            //if (tokens.Length - 1 != operandCount)  Extra tokens are usually just comments, so this warning is pretty useless.
-            //{
-            //    Debug.WriteLine($"Warning: Operation {mnemonic.ToString()} takes {operandCount} operands but {tokens.Length - 1} were given.");
-            //    // In this method, this isn't a showstopper-- we just ignore extra tokens, or leave operands null if there aren't enough.
-            //    // Could be comment.
-            //}
-
-            // Copy in all the operands.
+            // Copy in all the operands by parsing as many tokens as we need.
+            // Extra tokens are usually just comments. In this method, we simply ignore them, or leave operands as null if there aren't enough.
             int tokenIdx;
+            int operandCount = ret.Operands.Count;
             for (tokenIdx = 1; tokenIdx < tokens.Length && tokenIdx <= operandCount; ++tokenIdx)
             {
                 var operand = ret.Operands[tokenIdx - 1];
                 var token = tokens[tokenIdx];
-                //todo: switch to something like this instead if this foreach ...if (operand.Type == OperandType.)
 
                 // Parse the operand as the type we expect.
                 switch (operand.Type)
@@ -390,24 +384,13 @@ namespace SICXE
                 }
 
                 Debug.WriteLine($"Parsed {token} as {operand.Type.ToString()}.");
-
             } // for each operand.
 
             ret.Comment = string.Join(" ", tokens, tokenIdx, tokens.Length - tokenIdx);
 
             result = ret;
             return true;
-
-
-
         }
-
-
-        //public override string Verbatim
-        //{
-        //    get;
-        //    private set;
-        //}
 
         public override string ToString()
         {

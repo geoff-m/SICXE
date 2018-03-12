@@ -38,7 +38,7 @@ namespace SICXE
             return false;
         }
 
-        // This method is not as of 3/7/2018. It is provided to quell warning.
+        // This method is not used as of 3/7/2018. It is provided to quell warning.
         public override int GetHashCode()
         {
             if (BaseAddress.HasValue)
@@ -56,7 +56,6 @@ namespace SICXE
             {
                 return $"{Data.Length}bytes@<not set>";
             }
-
         }
     }
 }
