@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.Diagnostics;
-using EnumsNET;
+//using EnumsNET;
 using System.Timers;
 using Interlocked = System.Threading.Interlocked;
 

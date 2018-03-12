@@ -377,6 +377,7 @@ namespace SICXE
                         throw new ArgumentException($"Instruction has a bad format.");
 #else
                         ReportError("Instruction has a bad format.", instr);
+                        break;
 #endif
                 }
                 Array.Copy(binInstr, 0, codeSegment.Data, ip, binInstr.Length);
