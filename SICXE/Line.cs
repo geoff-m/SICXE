@@ -22,6 +22,13 @@ namespace SICXE
         { get; set; }
 
         /// <summary>
+        /// The number this line had in the original file.
+        /// </summary>
+        public int Number
+        { get; set; }
+
+
+        /// <summary>
         /// Parses a line as either a Directive or an Instruction.
         /// </summary>
         /// <param name="s">A line containing either an assembler directive or a SIC/XE instruction.</param>

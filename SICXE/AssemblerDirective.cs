@@ -64,7 +64,6 @@ namespace SICXE
 
                 default:
                     throw new NotImplementedException($"Assembler directive \"{tokens[0]}\" is not supported!");
-
             }
 
             result.Comment = string.Join(" ", tokens, 2, tokens.Length - 2);

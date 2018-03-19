@@ -10,6 +10,7 @@ namespace SICXE
         Format1 = 1,
         Format2 = 2,
         Format3 = 3,
-        Format4 = 4
+        Format4 = 4,
+        Format3Or4 = 12
     }
 }

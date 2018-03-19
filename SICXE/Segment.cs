@@ -38,6 +38,14 @@ namespace SICXE
             return false;
         }
 
+        // This method is not used as of 3/7/2018. It is provided to quell warning.
+        public override int GetHashCode()
+        {
+            if (BaseAddress.HasValue)
+                return BaseAddress.Value;
+            return -1;
+        }
+
         public override string ToString()
         {
             if (BaseAddress.HasValue)
@@ -48,7 +56,6 @@ namespace SICXE
             {
                 return $"{Data.Length}bytes@<not set>";
             }
-
         }
     }
 }

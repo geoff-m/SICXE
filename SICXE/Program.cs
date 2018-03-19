@@ -124,6 +124,7 @@ namespace SICXE
 
                     if (Line.TryParse(textLine, out Line line))
                     {
+                        line.Number = lineCount;
                         prog.Add(line);
 
                         if (line.Label != null && prog.LongestLabel < line.Label.Length)
