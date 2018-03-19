@@ -1,7 +1,6 @@
-# SICXE
-Workbench and simulation environment for SIC/XE
+# SIC/XE Assembler
+Assembler and tools for creating SIC/XE binaries
 
+See related project SIC/XE simulator:
+https://github.com/geoff-m/vsic
 http://www.unf.edu/~n00792879/sicsim.html
-
-This C# project, which uses the .NET framework, including Winforms, is developed using Visual Studio.
-However, it has also been shown to work on Linux under Mono 5.8.0.
