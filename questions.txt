@@ -1,0 +1,4 @@
+﻿
+Can END directive be followed by a number, or does it have to be a symbol?
+
+Can we do any of {B P E} and {N I X} at the same time?
