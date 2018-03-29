@@ -248,6 +248,18 @@ namespace SICXE
                             }
                             line.Address = bytesSoFar;
                             break;
+                        case AssemblerDirective.Mnemonic.LTORG:
+
+                            // todo
+
+                            line.Address = bytesSoFar;
+
+
+                            // calculate number of bytes that should go here and advance bytesSoFar by that amount
+
+
+
+                            break;
                     }
                 }
                 else // The line must be an instruction.
