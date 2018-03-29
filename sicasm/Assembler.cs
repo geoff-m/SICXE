@@ -56,7 +56,7 @@ namespace SICXE
         /// </summary>
         Symbol entryPoint = null;
 
-        bool hitEnd = false; // We allow only one of these.
+        bool hitEnd = false; // We allow only one end directive.
 
         /// <summary>
         /// The total number of instruction bytes in the program.
@@ -80,18 +80,17 @@ namespace SICXE
                 // This indicates a bug.
                 throw new InvalidOperationException("Pass one has already been done!");
             }
+            Console.WriteLine("Beginning pass one...");
             StreamWriter writer = null;
             if (lstPath != null)
             {
                 writer = new StreamWriter(lstPath, false);
-                writer.WriteLine("************************************************");
-                writer.WriteLine("Chuniversity of Fourth Florida: Sick/XD Assembler");
-                writer.WriteLine($"Version date {_BUILD_DATE.ToShortDateString()}");
+                writer.WriteLine($"Geoff's SIC/XE Assembler (built on {_BUILD_DATE.ToShortDateString()})");
                 var now = DateTime.Now;
                 writer.WriteLine($"Username: {Environment.UserName}; {now.ToShortDateString()} {now.ToLongTimeString()}");
-                writer.WriteLine("************************************************");
-                writer.WriteLine("ASSEMBLER REPORT");
-                writer.WriteLine("----------------");
+                writer.WriteLine("-------------------------------------------------");
+                writer.WriteLine("Assembler First Pass Report");
+                writer.WriteLine("---------------------------");
                 writer.WriteLine("Line\tAddress\tSource");
                 writer.WriteLine("----\t-------\t-----------------------");
             }
@@ -99,7 +98,6 @@ namespace SICXE
             int bytesSoFar = 0;
 
             var currentSegment = new Segment();
-            var binary = new List<byte[]>();
 
             symbols = new Dictionary<string, Symbol>();
             for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
@@ -108,17 +106,17 @@ namespace SICXE
                 string label;
                 if (line is AssemblerDirective dir)
                 {
-                    if (dir.Value == null)
-                    {
-                        Console.WriteLine($"Incomplete symbol declaration is not allowed: {line.ToString()}");
-                        return false;
-                    }
                     int val;
                     switch (dir.Directive)
                     {
                         // We require these directives to have an integer as their argument.
                         case AssemblerDirective.Mnemonic.BYTE:
                             // for now we allow only exactly 1 byte.
+                            if (dir.Value == null)
+                            {
+                                Console.WriteLine($"Incomplete BYTE declaration is not allowed: {line.ToString()}");
+                                return false;
+                            }
                             if (int.TryParse(dir.Value, out val) && (val <= 255 || val >= -127))
                             {
                                 label = line.Label;
@@ -131,8 +129,6 @@ namespace SICXE
                                 }
                                 line.Address = bytesSoFar;
 
-                                binary.Add(EncodeTwosComplement(val, 8));
-                                //binary[lineIdx] = EncodeTwosComplement(val, 8);
                                 bytesSoFar += 1;
                             }
                             else
@@ -143,6 +139,11 @@ namespace SICXE
                             }
                             break;
                         case AssemblerDirective.Mnemonic.WORD:
+                            if (dir.Value == null)
+                            {
+                                Console.WriteLine($"Incomplete WORD declaration is not allowed: {line.ToString()}");
+                                return false;
+                            }
                             if (int.TryParse(dir.Value, out val))
                             {
                                 label = line.Label;
@@ -155,8 +156,6 @@ namespace SICXE
                                 }
                                 line.Address = bytesSoFar;
 
-                                binary.Add(EncodeTwosComplement(val, 12));
-                                //binary[lineIdx] = EncodeTwosComplement(val, 12);
                                 bytesSoFar += Word.Size;
                             }
                             else
@@ -167,6 +166,16 @@ namespace SICXE
                             }
                             break;
                         case AssemblerDirective.Mnemonic.RESW:
+                            if (dir.Value == null)
+                            {
+                                Console.WriteLine($"Incomplete RESW declaration is not allowed: {line.ToString()}");
+                                return false;
+                            }
+                            if (!startAddress.HasValue)
+                            {
+                                Console.WriteLine("RESW cannot appear before START directive.");
+                                return false;
+                            }
                             if (int.TryParse(dir.Value, out val))
                             {
                                 label = line.Label;
@@ -179,20 +188,6 @@ namespace SICXE
                                 }
 
                                 line.Address = bytesSoFar;
-
-                                // Finalize and push this segment and start a new one.
-                                if (!startAddress.HasValue)
-                                {
-                                    Console.WriteLine("RESW cannot appear before START directive.");
-                                    return false;
-                                }
-                                currentSegment.Data = binary.Join();
-                                binary.Clear();
-                                outputBinary.AddSegment(currentSegment);
-
-                                int lastByte = currentSegment.BaseAddress.Value + currentSegment.Data.Length;
-                                currentSegment = new Segment();
-                                currentSegment.BaseAddress = lastByte + 1;
 
                                 bytesSoFar += Word.Size * val;
                             }
@@ -217,10 +212,6 @@ namespace SICXE
                             if (int.TryParse(dir.Value, System.Globalization.NumberStyles.HexNumber, null, out val))
                             {
                                 startAddress = val;
-                                currentSegment = new Segment
-                                {
-                                    BaseAddress = val
-                                };
 
                                 line.Address = 0; // by definition.
                             }
@@ -270,16 +261,29 @@ namespace SICXE
                     if (!firstInstructionAddress.HasValue)
                         firstInstructionAddress = bytesSoFar + startAddress;
 
+                    // Ensure label is in the symbol table.
                     label = line.Label;
                     if (label != null)
                     {
-                        label = TrimIndexer(label);
                         if (!CreateSymbol(label))
                             return false;
                         symbols[label].Address = bytesSoFar;
                     }
-                    line.Address = bytesSoFar;
+
+                    // If operand is a symbol, ensure we include it in the symbol table.
                     var instr = (Instruction)line;
+                    if ((instr.Format == InstructionFormat.Format3 || instr.Format == InstructionFormat.Format4) && instr.Operands.Count > 0)
+                    {
+                        var sym = instr.Operands[0].SymbolName;
+                        if (sym != null)
+                        {
+                            sym = TrimIndexer(sym);
+                            TouchSymbol(sym);
+                        }
+                    }
+
+                    // Set address.
+                    line.Address = bytesSoFar;
                     bytesSoFar += (int)instr.Format;
                     instructionBytes += (int)instr.Format;
                 }
@@ -290,7 +294,10 @@ namespace SICXE
                     if (separation < 1)
                         separation = 1;
                     string address = line.Address.HasValue ? (startAddress.Value + line.Address.Value).ToString("X6") : "??????";
-                    writer.WriteLine($"{lineIdx.ToString("D3")}\t\t{address}\t{line.ToString(separation)}    \t{line.Comment}");
+                    if (line.Comment != null && line.Comment.Length > 0)
+                        writer.WriteLine($"{lineIdx.ToString("D3")}\t\t{address}\t{line.ToString(separation)}    \t{line.Comment}");
+                    else
+                        writer.WriteLine($"{lineIdx.ToString("D3")}\t\t{address}\t{line.ToString(separation)}");
 
                 }
             }
@@ -395,7 +402,7 @@ namespace SICXE
 
             donePassTwo = true;
             return true;
-        }
+        } // PassTwo().
 
         // Called during pass two (but could be called during pass one!)
         private byte[] AssembleFormat2(Instruction instr)
@@ -428,14 +435,6 @@ namespace SICXE
             if (opcount == 1)
             {
                 var firstOperand = instr.Operands[0];
-
-                // If it's a symbol, ensure we include it in the symbol table.
-                var sym = firstOperand.SymbolName;
-                if (sym != null)
-                {
-                    sym = TrimIndexer(sym);
-                    TouchSymbol(sym);
-                }
 
                 // Set flags that don't require knowledge of the displacement, N I X.
                 AddressingMode mode = firstOperand.AddressingMode;
@@ -604,6 +603,7 @@ namespace SICXE
                     return false;
                 }
                 existing.Address = value;
+                return true;
             }
             symbols.Add(name, new Symbol(name) { Address = value });
             return true;
@@ -650,14 +650,6 @@ namespace SICXE
 
         }
 
-        /*
-         * ar version = Assembly.GetEntryAssembly().GetName().Version;
-var buildDateTime = new DateTime(2000, 1, 1).Add(new TimeSpan(
-TimeSpan.TicksPerDay * version.Build + // days since 1 January 2000
-TimeSpan.TicksPerSecond * 2 * version.Revision)); // seconds since midnight, (multiply by 2 to get original)
-         * 
-         * 
-         */
         static readonly DateTime _BUILD_DATE;
         static Assembler()
         {

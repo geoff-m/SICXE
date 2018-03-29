@@ -59,5 +59,10 @@
     <Compile Include="Symbol.cs" />
     <Compile Include="Word.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Literals.txt" />
+    <Content Include="Questions.txt" />
+    <Content Include="TODO.txt" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

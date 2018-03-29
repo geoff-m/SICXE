@@ -15,8 +15,9 @@ namespace SICXE
 
             START = 10,
             END = 11,
-            BASE = 12
-            // etc.
+            BASE = 12, // todo: implement me
+            
+            LTORG = 20
         }
 
         public Mnemonic Directive
@@ -38,7 +39,7 @@ namespace SICXE
         /// <returns>A Boolean value indicating whether the parse was successful.</returns>
         public static bool TryParse(string[] tokens, out AssemblerDirective result)
         {
-            if (tokens.Length < 2)
+            if (tokens.Length < 1)
             {
                 result = null;
                 return false;
@@ -52,6 +53,7 @@ namespace SICXE
             result = new AssemblerDirective(dir);
             switch (dir)
             {
+                // todo: parse arguments properly for each directive.
                 case Mnemonic.BYTE:
                 case Mnemonic.RESW:
                 case Mnemonic.EQU:
@@ -59,14 +61,18 @@ namespace SICXE
                 case Mnemonic.WORD:
                 case Mnemonic.END:
                     result.Value = tokens[1];
+                    result.Comment = string.Join(" ", tokens, 2, tokens.Length - 2);
                     break;
-                // todo: parse arguments properly for each directive.
+                case Mnemonic.LTORG:
+                    // LTORG takes no arguments.
+                    result.Comment = string.Join(" ", tokens, 1, tokens.Length - 1);
+                    break;
 
                 default:
                     throw new NotImplementedException($"Assembler directive \"{tokens[0]}\" is not supported!");
             }
 
-            result.Comment = string.Join(" ", tokens, 2, tokens.Length - 2);
+            
 
             return true;
         }

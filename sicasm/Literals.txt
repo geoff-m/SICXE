@@ -1,0 +1,21 @@
+﻿
+A literal can be used as an instruction's operand in place of an address.
+This means literals can be used only in format 3 or 4 instructions.
+
+Example use of a character literal:
+	LDT		=C'i like eggs'
+
+Example use of a byte literal:
+	MUL		=X'2D37A0'
+
+
+For a programmer, using a literal is just shorthand for defining a symbol with the same name.
+For example, a program containing the above instructions effectively also contains
+=C'i like eggs'		BYTE	asciiCodeOf(i like eggs)
+=X'2D37A0'			BYTE	2D37A0
+
+The location of these symbol definitions is wherever the next LTORG directive appears in the program specification.
+All programs end with an implicit LTORG directive.
+
+If the programmer defines a label that would collide with a literal (see implied BYTE directives above),
+the assembler need not take any action to resolve this and simply halts with an error.
