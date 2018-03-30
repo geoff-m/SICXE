@@ -37,7 +37,7 @@ namespace SICXE
             }
 
         }
-
+        
         static void WriteRandomProgram(string path, int lineCount)
         {
             Console.WriteLine($"Generating random {lineCount} line program...");

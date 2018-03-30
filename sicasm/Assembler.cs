@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.IO;
 
@@ -254,11 +254,18 @@ namespace SICXE
 
                             line.Address = bytesSoFar;
 
-
                             // calculate number of bytes that should go here and advance bytesSoFar by that amount
 
-
-
+                            int literalBytesSoFar = 0;
+                            foreach (var sym in symbols)
+                            {
+                                if (sym.Value is Literal lit)
+                                {
+                                    literalBytesSoFar += lit.Data.Length;
+                                }
+                            }
+                            Debug.WriteLine($"LTORG at {line.Address}: {literalBytesSoFar} bytes of literals so far.");
+                            bytesSoFar += literalBytesSoFar;
                             break;
                     }
                 }
@@ -322,6 +329,8 @@ namespace SICXE
             donePassOne = true;
             return true;
         }
+
+
 
         int @base; // todo: implement base directive.
         bool donePassTwo = false;
@@ -578,7 +587,17 @@ namespace SICXE
         private void TouchSymbol(string name)
         {
             if (!symbols.ContainsKey(name))
-                symbols.Add(name, new Symbol(name));
+            {
+                if (Literal.StringIsLiteralName(name))
+                {
+                    symbols.Add(name, new Literal(name));
+                }
+                else
+                {
+                    symbols.Add(name, new Symbol(name));
+                }
+                
+            }
         }
 
         /// <summary>
@@ -594,7 +613,6 @@ namespace SICXE
                 return false;
             }
             var newSymbol = new Symbol(name);
-
             symbols[name] = newSymbol;
             return true;
         }
