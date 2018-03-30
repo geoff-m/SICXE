@@ -80,7 +80,7 @@ namespace SICXE
                 // This indicates a bug.
                 throw new InvalidOperationException("Pass one has already been done!");
             }
-            Console.WriteLine("Beginning pass one...");
+            Console.WriteLine("\nBeginning pass one...");
             StreamWriter writer = null;
             if (lstPath != null)
             {
@@ -92,12 +92,10 @@ namespace SICXE
                 writer.WriteLine("Assembler First Pass Report");
                 writer.WriteLine("---------------------------");
                 writer.WriteLine("Line\tAddress\tSource");
-                writer.WriteLine("----\t-------\t-----------------------");
+                writer.WriteLine("----\t-------\t---------------------------------");
             }
 
             int bytesSoFar = 0;
-
-            var currentSegment = new Segment();
 
             symbols = new Dictionary<string, Symbol>();
             for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
@@ -213,7 +211,7 @@ namespace SICXE
                             {
                                 startAddress = val;
 
-                                line.Address = 0; // by definition.
+                                line.Address = 0; // by definition. That is, this is the offset relative to START.
                             }
                             else
                             {
@@ -231,21 +229,23 @@ namespace SICXE
 
                             if (dir.Value == null)
                             {
-                                Console.WriteLine("END directive must be followed by a label or address!");
-                                return false;
-                            }
-                            if (int.TryParse(dir.Value, out val))
-                            {
-                                if (line.Label != null)
-                                    if (!CreateSymbol(line.Label))
-                                        return false;
-                                outputBinary.EntryPoint = val;
+                                Console.WriteLine("Warning: Empty END directive.");
                             }
                             else
                             {
-                                TouchSymbol(dir.Value);
-                                entryPoint = symbols[dir.Value];
+                                if (int.TryParse(dir.Value, out val))
+                                {
+                                    if (line.Label != null)
+                                        if (!CreateSymbol(line.Label))
+                                            return false;
+                                }
+                                else
+                                {
+                                    TouchSymbol(dir.Value);
+                                    entryPoint = symbols[dir.Value];
+                                }
                             }
+
                             line.Address = bytesSoFar;
                             break;
                         case AssemblerDirective.Mnemonic.LTORG:

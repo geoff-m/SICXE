@@ -16,6 +16,7 @@ namespace SICXE
             START = 10,
             END = 11,
             BASE = 12, // todo: implement me
+            CSECT = 13, // not yet implemented
             
             LTORG = 20
         }
@@ -59,9 +60,20 @@ namespace SICXE
                 case Mnemonic.EQU:
                 case Mnemonic.START:
                 case Mnemonic.WORD:
-                case Mnemonic.END:
+                    if (tokens.Length < 2) // Argument of these is required.
+                    {
+                        result = null;
+                        return false;
+                    }
                     result.Value = tokens[1];
                     result.Comment = string.Join(" ", tokens, 2, tokens.Length - 2);
+                    break;
+                case Mnemonic.END:
+                    if (tokens.Length > 1) // Argument of END is optional.
+                    {
+                        result.Value = tokens[1];
+                        result.Comment = string.Join(" ", tokens, 2, tokens.Length - 2);
+                    }
                     break;
                 case Mnemonic.LTORG:
                     // LTORG takes no arguments.
