@@ -3,9 +3,4 @@ Support BASE directive in pass one.
 
 Allow the associated numbers to be input instead of register mnemonics (A = 0, etc.)
 
-Support EQU directive.
-
-
-
-
-
+Support EQU directive. (optional for project 3 credit)

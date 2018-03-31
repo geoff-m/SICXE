@@ -107,129 +107,174 @@ namespace SICXE
                     int val;
                     switch (dir.Directive)
                     {
-                        // We require these directives to have an integer as their argument.
                         case AssemblerDirective.Mnemonic.BYTE:
-                            // for now we allow only exactly 1 byte.
                             if (dir.Value == null)
                             {
-                                Console.WriteLine($"Incomplete BYTE declaration is not allowed: {line.ToString()}");
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tIncomplete BYTE declaration is not allowed: {line.ToString()}");
                                 return false;
                             }
-                            if (int.TryParse(dir.Value, out val) && (val <= 255 || val >= -127))
+                            if (hitEnd)
                             {
-                                label = line.Label;
-                                if (label != null)
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                                return false;
+                            }
+
+                            var byteRegex = new Regex("([xc])'([^' ]+)'", RegexOptions.IgnoreCase);
+                            var match = byteRegex.Match(dir.Value);
+                            if (!match.Success)
+                            {
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tCannot parse argument to BYTE directive.");
+                                return false;
+                            }
+
+                            line.Address = bytesSoFar;
+                            label = line.Label;
+                            if (label != null)
+                            {
+                                if (!SetSymbolAddress(label, bytesSoFar))
                                 {
-                                    if (!SetSymbolValue(label, val))
-                                        return false;
-                                    symbols[label].Address = bytesSoFar;
-
+                                    Console.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{label}\"");
+                                    return false;
                                 }
-                                line.Address = bytesSoFar;
-
-                                bytesSoFar += 1;
+                                symbols[label].Address = bytesSoFar;
                             }
-                            else
+
+                            int dataLength = match.Groups[2].Value.Length;
+                            switch (match.Groups[1].Value[0])
                             {
-                                // todo: some byte directives don't have the form of an integer. handle these.
-                                Console.WriteLine($"Could not parse byte \"{dir.Value}\" in \"{dir.ToString()}\"");
-                                return false;
+                                case 'x':
+                                case 'X':
+                                    if (dataLength % 2 != 0)
+                                    {
+                                        Console.WriteLine($"Warning: Line {lineIdx + 1}:\tHex string has uneven number of characters. The left will be padded with 0.");
+                                    }
+                                    // For a hex literal, each pair of characters is a byte.
+                                    bytesSoFar += (int)Math.Ceiling(dataLength / 2d);
+                                    break;
+                                case 'c':
+                                case 'C':
+                                    // For a character literal, each character is one byte.
+                                    bytesSoFar += dataLength;
+                                    break;
                             }
                             break;
                         case AssemblerDirective.Mnemonic.WORD:
                             if (dir.Value == null)
                             {
-                                Console.WriteLine($"Incomplete WORD declaration is not allowed: {line.ToString()}");
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tIncomplete WORD declaration is not allowed: {line.ToString()}");
                                 return false;
                             }
+                            if (hitEnd)
+                            {
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                                return false;
+                            }
+
                             if (int.TryParse(dir.Value, out val))
                             {
                                 label = line.Label;
                                 if (label != null)
                                 {
-                                    if (!SetSymbolValue(label, val))
+                                    if (!SetSymbolAddress(label, val))
+                                    {
+                                        Console.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{line.Label}\"");
                                         return false;
-
+                                    }
                                     symbols[label].Address = bytesSoFar;
                                 }
-                                line.Address = bytesSoFar;
 
+                                line.Address = bytesSoFar;
                                 bytesSoFar += Word.Size;
                             }
                             else
                             {
                                 // todo: some word directives don't have the form of an integer. handle these.
-                                Console.WriteLine($"Could not parse word \"{dir.Value}\" in \"{dir.ToString()}\"");
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tCould not parse word \"{dir.Value}\" in \"{dir.ToString()}\"");
                                 return false;
                             }
                             break;
                         case AssemblerDirective.Mnemonic.RESW:
+                        case AssemblerDirective.Mnemonic.RESB:
                             if (dir.Value == null)
                             {
-                                Console.WriteLine($"Incomplete RESW declaration is not allowed: {line.ToString()}");
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tIncomplete RESW or RESB declaration is not allowed: {line.ToString()}");
                                 return false;
                             }
-                            if (!startAddress.HasValue)
+                            if (hitEnd)
                             {
-                                Console.WriteLine("RESW cannot appear before START directive.");
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
                                 return false;
                             }
+
                             if (int.TryParse(dir.Value, out val))
                             {
                                 label = line.Label;
                                 if (label != null)
                                 {
-                                    //TouchSymbol(label);
-                                    if (!SetSymbolValue(label, bytesSoFar)) // is this correct?
+                                    if (!SetSymbolAddress(label, bytesSoFar))
+                                    {
+
+                                        Console.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{line.Label}\"");
                                         return false;
+                                    }
                                     symbols[label].Address = bytesSoFar;
                                 }
 
                                 line.Address = bytesSoFar;
-
-                                bytesSoFar += Word.Size * val;
+                                if (dir.Directive == AssemblerDirective.Mnemonic.RESW)
+                                {
+                                    bytesSoFar += Word.Size * val;
+                                }
+                                else
+                                {
+                                    bytesSoFar += val;
+                                }
                             }
                             else
                             {
-                                Console.WriteLine($"Could not parse integer \"{dir.Value}\" in \"{dir.ToString()}\"");
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tCould not parse integer \"{dir.Value}\" in \"{dir.ToString()}\"");
                                 return false;
                             }
                             break;
                         case AssemblerDirective.Mnemonic.START:
+                            if (hitEnd)
+                            {
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                                return false;
+                            }
                             if (startAddress.HasValue)
                             {
-                                Console.WriteLine("Multiple START directives are not allowed.");
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tMultiple START directives are not allowed.");
                                 return false;
                             }
 
                             if (dir.Value == null)
                             {
-                                Console.WriteLine("START directive must be followed by an address!");
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tSTART directive must be followed by an address!");
                                 return false;
                             }
                             if (int.TryParse(dir.Value, System.Globalization.NumberStyles.HexNumber, null, out val))
                             {
                                 startAddress = val;
-
                                 line.Address = 0; // by definition. That is, this is the offset relative to START.
                             }
                             else
                             {
-                                Console.WriteLine($"Cannot parse start address \"{dir.Value}\".");
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tCannot parse start address \"{dir.Value}\".");
                                 return false;
                             }
                             break;
                         case AssemblerDirective.Mnemonic.END:
                             if (hitEnd)
                             {
-                                Console.WriteLine("Multiple END directives are not allowed.");
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tMultiple END directives are not allowed.");
                                 return false;
                             }
                             hitEnd = true;
 
                             if (dir.Value == null)
                             {
-                                Console.WriteLine("Warning: Empty END directive.");
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tWarning: Empty END directive.");
                             }
                             else
                             {
@@ -237,7 +282,10 @@ namespace SICXE
                                 {
                                     if (line.Label != null)
                                         if (!CreateSymbol(line.Label))
+                                        {
+                                            Console.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple declarations of symbol \"{line.Label}\"");
                                             return false;
+                                        }
                                 }
                                 else
                                 {
@@ -249,13 +297,15 @@ namespace SICXE
                             line.Address = bytesSoFar;
                             break;
                         case AssemblerDirective.Mnemonic.LTORG:
-
-                            // todo
+                            if (hitEnd)
+                            {
+                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                                return false;
+                            }
 
                             line.Address = bytesSoFar;
 
-                            // calculate number of bytes that should go here and advance bytesSoFar by that amount
-
+                            // Calculate number of bytes that should go here and advance bytesSoFar by that amount
                             int literalBytesSoFar = 0;
                             foreach (var sym in symbols)
                             {
@@ -264,16 +314,27 @@ namespace SICXE
                                     literalBytesSoFar += lit.Data.Length;
                                 }
                             }
-                            Debug.WriteLine($"LTORG at {line.Address}: {literalBytesSoFar} bytes of literals so far.");
+                            Console.WriteLine($"Info: Line {lineIdx + 1}:\t{literalBytesSoFar} bytes of literals pertain to LTORG at 0x{line.Address.Value.ToString("X")}.");
                             bytesSoFar += literalBytesSoFar;
                             break;
+                    } // switch (dir.Directive).
+
+                    if (!startAddress.HasValue)
+                    {
+                        Console.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear before START.");
+                        return false;
                     }
                 }
                 else // The line must be an instruction.
                 {
                     if (!startAddress.HasValue)
                     {
-                        Console.WriteLine("Code cannot appear before START directive.");
+                        Console.WriteLine($"Error: Line {lineIdx + 1}:\tCode cannot appear before START directive.");
+                        return false;
+                    }
+                    if (hitEnd)
+                    {
+                        Console.WriteLine($"Error: Line {lineIdx + 1}:\tCode cannot appear after END.");
                         return false;
                     }
 
@@ -285,7 +346,10 @@ namespace SICXE
                     if (label != null)
                     {
                         if (!CreateSymbol(label))
+                        {
+                            Console.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple declarations of symbol \"{label}\"");
                             return false;
+                        }
                         symbols[label].Address = bytesSoFar;
                     }
 
@@ -596,7 +660,6 @@ namespace SICXE
                 {
                     symbols.Add(name, new Symbol(name));
                 }
-                
             }
         }
 
@@ -609,7 +672,7 @@ namespace SICXE
         {
             if (symbols.ContainsKey(name))
             {
-                Console.WriteLine($"Multiple declarations of label \"{name}\"!");
+                // The symbol already exists. Let caller display error message.
                 return false;
             }
             var newSymbol = new Symbol(name);
@@ -621,21 +684,22 @@ namespace SICXE
         /// Sets a symbol's value, ensuring it does not already have one. If the symbol with the specified name does not exist, it will be created.
         /// </summary>
         /// <param name="name"></param>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        private bool SetSymbolValue(string name, int value)
+        /// <param name="address"></param>
+        /// <returns>True on success. False if the symbol already has a value assigned.</returns>
+        private bool SetSymbolAddress(string name, int address)
         {
             if (symbols.TryGetValue(name, out Symbol existing))
             {
                 if (existing.Address.HasValue)
                 {
-                    Console.WriteLine($"Symbol \"{name}\" already has value {existing.Address}!");
+                    // The symbol already has value assigned. Let caller display error message.
                     return false;
                 }
-                existing.Address = value;
+                existing.Address = address;
                 return true;
             }
-            symbols.Add(name, new Symbol(name) { Address = value });
+            // The symbol does not exist. We create it and assign it a value at the same time.
+            symbols.Add(name, new Symbol(name) { Address = address });
             return true;
         }
 
