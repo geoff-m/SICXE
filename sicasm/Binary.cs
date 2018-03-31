@@ -25,7 +25,7 @@ namespace SICXE
         /// <param name="path"></param>
         public void WriteLST(string path)
         {
-            
+            throw new NotSupportedException();
         }
 
         /// <summary>
@@ -34,7 +34,7 @@ namespace SICXE
         /// <param name="path"></param>
         public void WriteOBJ(string path)
         {
-
+            throw new NotSupportedException();
         }
 
 

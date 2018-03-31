@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.IO;
 
 namespace SICXE
@@ -9,35 +7,34 @@ namespace SICXE
     {
         static void Main(string[] args)
         {
-            //TestProgramParser();
-
-            const string GOOGLE_DRIVE_PATH = @"C:\Users\geoff\Google Drive\";
-            //const string GOOGLE_DRIVE_PATH = @"E:\Google Drive\";
-
-            const string PROGRAM_PATH = @"Intro to System Software\asms\small.txt";
-            const string LIST_DIRECTORY = @"Intro to System Software\lsts\";
-            Directory.CreateDirectory(GOOGLE_DRIVE_PATH + LIST_DIRECTORY);
-            string LIST_PATH = $"{LIST_DIRECTORY}{Path.GetFileNameWithoutExtension(PROGRAM_PATH)}.lst.txt";
-
-            if (Program.TryParse(GOOGLE_DRIVE_PATH + PROGRAM_PATH, out Program myProgram))
+            if (args.Length != 1)
             {
-                for (int i = 0; i < myProgram.Count; ++i)
+                Console.WriteLine("Expected 1 argument: Path to assembly file");
+                return;
+            }
+            var path = args[0];
+            try
+            {
+                if (Program.TryParse(path, out Program myProgram))
                 {
-                    Console.WriteLine($"{myProgram[i].ToString()}");
-                }
-                var assembler = new Assembler(myProgram);
-                if (assembler.PassOne(GOOGLE_DRIVE_PATH + LIST_PATH))
-                {
-                    Console.WriteLine("\nAssembly pass one succeeded.");
-                }
-                else
-                {
-                    Console.WriteLine("\nAssembly pass one failed.");
+                    var assembler = new Assembler(myProgram);
+                    var outpath = path + ".lst";
+                    if (assembler.PassOne(outpath))
+                    {
+                        Console.WriteLine($"\nAssembly pass one succeeded. Listing file written to \"{outpath}\"");
+                    }
+                    else
+                    {
+                        Console.WriteLine("\nAssembly pass one failed.");
+                    }
                 }
             }
-
+            catch (IOException ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
         }
-        
+
         static void WriteRandomProgram(string path, int lineCount)
         {
             Console.WriteLine($"Generating random {lineCount} line program...");
