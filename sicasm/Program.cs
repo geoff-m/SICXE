@@ -83,7 +83,6 @@ namespace SICXE
         }
         #endregion
 
-
         /// <summary>
         /// Gets the length of the longest symbol name in this program. Used for formatting listing files.
         /// </summary>
@@ -147,7 +146,7 @@ namespace SICXE
                 if (read != null)
                     read.Dispose();
             }
-            Console.WriteLine("\nParse completed with {0} {1}.\n",
+            Console.WriteLine("\nParse completed with {0} {1}.",
                 errorCount,
                 errorCount == 1 ? "error" : "errors");
             if (errorCount == 0)
