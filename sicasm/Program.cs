@@ -79,7 +79,6 @@ namespace SICXE
         }
         #endregion
 
-
         /// <summary>
         /// Gets the length of the longest symbol name in this program. Used for formatting listing files.
         /// </summary>
@@ -90,7 +89,6 @@ namespace SICXE
         {
             StreamReader read = null;
             var prog = new Program();
-            var allowedVariableNameRegex = new Regex("\\w");
             int lineCount = 0;
             int errorCount = 0;
             try

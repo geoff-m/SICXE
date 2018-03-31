@@ -11,8 +11,8 @@ namespace SICXE
         {
             //TestProgramParser();
 
-            const string GOOGLE_DRIVE_PATH = @"C:\Users\geoff\Google Drive\";
-            //const string GOOGLE_DRIVE_PATH = @"E:\Google Drive\";
+            //const string GOOGLE_DRIVE_PATH = @"C:\Users\geoff\Google Drive\";
+            const string GOOGLE_DRIVE_PATH = @"E:\Google Drive\";
 
             const string PROGRAM_PATH = @"Intro to System Software\asms\small.txt";
             const string LIST_DIRECTORY = @"Intro to System Software\lsts\";
@@ -35,7 +35,6 @@ namespace SICXE
                     Console.WriteLine("\nAssembly pass one failed.");
                 }
             }
-
         }
         
         static void WriteRandomProgram(string path, int lineCount)

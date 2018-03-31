@@ -8,17 +8,18 @@ namespace SICXE
     {
         public enum Mnemonic
         {
-            EQU = 1,
-            RESW = 2,
-            BYTE = 3,
-            WORD = 4,
+            RESB = 1, // See p. 44
+            RESW = 2, // See p. 44
+            BYTE = 3, // See p. 44
+            WORD = 4, // See p. 44
 
-            START = 10,
-            END = 11,
+            START = 10, // See p. 44
+            END = 11, // See p. 44
             BASE = 12, // todo: implement me
             CSECT = 13, // not yet implemented
             
-            LTORG = 20
+            LTORG = 20,
+                EQU = 30
         }
 
         public Mnemonic Directive

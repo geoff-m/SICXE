@@ -28,14 +28,9 @@ namespace SICXE
         public override string ToString()
         {
             if (Address.HasValue)
-            {
                 return $"{Name}@{Address}";
-            }
             else
-            {
                 return $"{Name}@<not set>";
-            }
-
         }
     }
 
@@ -69,7 +64,7 @@ namespace SICXE
                     Console.WriteLine("Warning: Hex literal contains uneven number of characters. The left will be padded with 0.");
                     payload = '0' + payload;
                 }
-                Data = FromByteString(payload);
+                Data = GetBytesFromHexString(payload);
             }
             else if (type == 'c')
             {
@@ -81,7 +76,7 @@ namespace SICXE
             }
         }
 
-        private static byte[] FromByteString(string str)
+        private static byte[] GetBytesFromHexString(string str)
         {
             int len = str.Length;
             var ret = new byte[len / 2];

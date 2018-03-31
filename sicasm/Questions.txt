@@ -1,5 +1,5 @@
 ﻿
 Should we allow use of symbols (and by extension literals) in format 2 instructions?
 
-What should our pass one listing file look like regarding literals and LTORG?
-Should we actually turn literals into BYTE statements in pass one?
+What should our pass one listing file look like regarding literals and LTORG? 
+Should we actually turn literals into BYTE statements in pass one? Answer: No need for this, but do advance address by size of literals so far.
