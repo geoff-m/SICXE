@@ -265,7 +265,8 @@ namespace SICXE
                 mnemonic = mnemonic.Substring(1);
             }
 
-            if (char.IsDigit(mnemonic[0]) || !Enum.TryParse(mnemonic, true, out Mnemonic m)) // true to ignore case.
+            Mnemonic m;
+            if (char.IsDigit(mnemonic[0]) || !Enum.TryParse(mnemonic, true, out m)) // true to ignore case.
             {
                 result = null;
                 return false;
@@ -380,7 +381,8 @@ namespace SICXE
                         }
 
                         // Interpret the remainder of the token as an address, if possible, or else a symbol.
-                        if (int.TryParse(token, out int addr))
+                        int addr;
+                        if (int.TryParse(token, out addr))
                         {
                             operand.Value = addr;
                         }
@@ -391,7 +393,8 @@ namespace SICXE
                         }
                         break;
                     case OperandType.Register:
-                        if (Enum.TryParse(token, true, out Register reg))
+                        Register reg;
+                        if (Enum.TryParse(token, true, out reg))
                         {
                             operand.Value = (int)reg; // Casting Register to int.
                         }

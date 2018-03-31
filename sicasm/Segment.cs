@@ -29,7 +29,8 @@ namespace SICXE
 
         public override bool Equals(object obj)
         {
-            if (obj is Segment other)
+            Segment other = obj as Segment;
+            if (other != null)
             {
                 if (BaseAddress != other.BaseAddress)
                     return false;

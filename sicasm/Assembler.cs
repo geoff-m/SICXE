@@ -102,7 +102,8 @@ namespace SICXE
             {
                 Line line = prog[lineIdx];
                 string label;
-                if (line is AssemblerDirective dir)
+                AssemblerDirective dir = line as AssemblerDirective;
+                if (dir != null)
                 {
                     int val;
                     switch (dir.Directive)
@@ -259,7 +260,8 @@ namespace SICXE
                             int literalBytesSoFar = 0;
                             foreach (var sym in symbols)
                             {
-                                if (sym.Value is Literal lit)
+                                Literal lit = sym.Value as Literal;
+                                if (lit != null)
                                 {
                                     literalBytesSoFar += lit.Data.Length;
                                 }
@@ -547,7 +549,7 @@ namespace SICXE
                 case 3:
                     dispBytes = EncodeTwosComplement(displacement, 12);
                     Debug.Assert(dispBytes.Length == 2, "encodetwoscomplement gave us wrong number of bytes!");
-                    Debug.Assert((instruction[1] & 0b000011) == 0, "disp bits are already set in instruction!");
+                    Debug.Assert((instruction[1] & 0x3) == 0, "disp bits are already set in instruction!");
                     Debug.Assert(instruction[2] == 0, "disp bits are already set in instruction!");
                     instruction[2] = dispBytes[0];
                     instruction[1] |= dispBytes[1];
@@ -555,7 +557,7 @@ namespace SICXE
                 case 4:
                     dispBytes = EncodeTwosComplement(displacement, 20);
                     Debug.Assert(dispBytes.Length == 3, "encodetwoscomplement gave us wrong number of bytes!");
-                    Debug.Assert((instruction[1] & 0b000011) == 0, "disp bits are already set in instruction!");
+                    Debug.Assert((instruction[1] & 0x3) == 0, "disp bits are already set in instruction!");
                     Debug.Assert(instruction[2] == 0, "disp bits are already set in instruction!");
                     Debug.Assert(instruction[3] == 0, "disp bits are already set in instruction!");
                     instruction[3] = dispBytes[0];
@@ -625,7 +627,8 @@ namespace SICXE
         /// <returns></returns>
         private bool SetSymbolValue(string name, int value)
         {
-            if (symbols.TryGetValue(name, out Symbol existing))
+            Symbol existing;
+            if (symbols.TryGetValue(name, out existing))
             {
                 if (existing.Address.HasValue)
                 {

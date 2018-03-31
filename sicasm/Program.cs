@@ -26,7 +26,11 @@ namespace SICXE
 
         public bool IsReadOnly => ((IList<Line>)prog).IsReadOnly;
 
-        public Line this[int index] { get => ((IList<Line>)prog)[index]; set => ((IList<Line>)prog)[index] = value; }
+        public Line this[int index]
+        {
+            get { return ((IList<Line>)prog)[index]; }
+            set { ((IList<Line>)prog)[index] = value; }
+        }
 
         public int IndexOf(Line item)
         {
@@ -122,7 +126,8 @@ namespace SICXE
                     // Whitespace before operation is required.
                     // Whitespace before oprenand is required, if operand is present.
 
-                    if (Line.TryParse(textLine, out Line line))
+                    Line line;
+                    if (Line.TryParse(textLine, out line))
                     {
                         line.Number = lineCount;
                         prog.Add(line);

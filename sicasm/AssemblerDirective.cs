@@ -45,7 +45,8 @@ namespace SICXE
                 result = null;
                 return false;
             }
-            if (!Enum.TryParse(tokens[0], true, out Mnemonic dir))
+            Mnemonic dir;
+            if (!Enum.TryParse(tokens[0], true, out dir))
             {
                 result = null;
                 return false;

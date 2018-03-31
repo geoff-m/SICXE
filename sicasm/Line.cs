@@ -100,14 +100,16 @@ namespace SICXE
         private static bool TryParseWithoutLabel(string[] tokens, out Line result)
         {
             // Attempt to parse as instruction.
-            if (Instruction.TryParse(tokens, out Instruction inst))
+            Instruction inst;
+            if (Instruction.TryParse(tokens, out inst))
             {
                 result = inst;
                 return true;
             }
 
             // Attempt to parse as directive.
-            if (AssemblerDirective.TryParse(tokens, out AssemblerDirective dir))
+            AssemblerDirective dir;
+            if (AssemblerDirective.TryParse(tokens, out dir))
             {
                 result = dir;
                 return true;

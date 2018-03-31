@@ -18,8 +18,8 @@ namespace SICXE
             const string LIST_DIRECTORY = @"Intro to System Software\lsts\";
             Directory.CreateDirectory(GOOGLE_DRIVE_PATH + LIST_DIRECTORY);
             string LIST_PATH = $"{LIST_DIRECTORY}{Path.GetFileNameWithoutExtension(PROGRAM_PATH)}.lst.txt";
-
-            if (Program.TryParse(GOOGLE_DRIVE_PATH + PROGRAM_PATH, out Program myProgram))
+            Program myProgram;
+            if (Program.TryParse(GOOGLE_DRIVE_PATH + PROGRAM_PATH, out  myProgram))
             {
                 for (int i = 0; i < myProgram.Count; ++i)
                 {
@@ -70,7 +70,8 @@ namespace SICXE
             WriteRandomProgram(TEST_PROGRAM_PATH, TEST_PROGRAM_SIZE);
 
             Console.WriteLine($"\nParsing...");
-            if (Program.TryParse(TEST_PROGRAM_PATH, out Program parsed))
+            Program parsed;
+            if (Program.TryParse(TEST_PROGRAM_PATH, out parsed))
             {
                 Console.WriteLine($"Parsing {TEST_PROGRAM_PATH} succeeded.");
 
