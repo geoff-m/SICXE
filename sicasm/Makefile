@@ -1,5 +1,4 @@
-﻿
-all :
+﻿all :
 	mcs *.cs Properties/*.cs -out:pass1.exe
 
 clean :
