@@ -120,7 +120,7 @@ namespace SICXE
                                 return false;
                             }
 
-                            var byteRegex = new Regex("([xc])'([^' ]+)'", RegexOptions.IgnoreCase);
+                            var byteRegex = new Regex("([xc])'(.+)'", RegexOptions.IgnoreCase);
                             var match = byteRegex.Match(dir.Value);
                             if (!match.Success)
                             {

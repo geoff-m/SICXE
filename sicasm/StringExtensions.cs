@@ -9,10 +9,11 @@ namespace SICXE
     {
         public static string[] SmartSplit(this string str)
         // Functions same as string.split(), except:
-        // Does not split what is surrounded by quotation marks
-        // Aware of \" escaped quotation marks.
+        // Does not split what is surrounded by quotation marks.
+        // Aware of quotation marks that are escaped by a preceeding backslash.
         // Only splits once on contiguous whitespace.
         {
+            const char QUOTATION_MARK = '\'';
             if (str.Length == 0)
                 return new string[0];
             var ret = new List<string>();
@@ -24,7 +25,7 @@ namespace SICXE
                 char c = str[i];
                 if (insideliteral)
                 {
-                    if (c == '"' && (i > 0 || str[i - 1] != '\\'))
+                    if (c == QUOTATION_MARK && (i > 0 || str[i - 1] != '\\'))
                     {
                         insideliteral = false;
                     }
@@ -36,7 +37,7 @@ namespace SICXE
                 }
                 else
                 {
-                    if (c == '"' && (i == 0 || str[i - 1] != '\\'))
+                    if (c == QUOTATION_MARK && (i == 0 || str[i - 1] != '\\'))
                     {
                         inwhite = false;
                         insideliteral = true;
