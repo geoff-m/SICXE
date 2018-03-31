@@ -658,10 +658,6 @@ namespace SICXE
                 n &= ~highMask;
             }
 
-            byte high = (byte)((n & 0xff0000) >> 16);
-            byte middle = (byte)((n & 0xff00) >> 8);
-            byte low = (byte)(n & 0xff);
-
             int retlen = (int)Math.Ceiling(bits / 8d);
             var ret = new byte[retlen];
             for (int b = 0; b < retlen; ++b)
@@ -670,17 +666,6 @@ namespace SICXE
                 ret[b] = (byte)(only >> (b * 8));
             }
             return ret;
-
-            //if (high == 0)
-            //{
-            //    if (middle == 0)
-            //    {
-            //        return new byte[] { low };
-            //    }
-            //    return new byte[] { low, middle };
-            //}
-            //return new byte[] { low, middle, high };
-
         }
 
         static readonly DateTime _BUILD_DATE;

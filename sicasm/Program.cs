@@ -94,13 +94,11 @@ namespace SICXE
         {
             StreamReader read = null;
             var prog = new Program();
-            var allowedVariableNameRegex = new Regex("\\w");
             int lineCount = 0;
             int errorCount = 0;
             try
             {
                 read = new StreamReader(path);
-                var fileName = Path.GetFileName(path);
                 while (!read.EndOfStream)
                 {
                     var textLine = read.ReadLine();
