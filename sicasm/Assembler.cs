@@ -275,7 +275,6 @@ namespace SICXE
                                     return false;
                                 }
                             }
-
                             break;
                         case AssemblerDirective.Mnemonic.END:
                             if (hitEnd)

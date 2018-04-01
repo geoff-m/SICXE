@@ -49,7 +49,6 @@
     <Compile Include="Binary.cs" />
     <Compile Include="EntryPoint.cs" />
     <Compile Include="Instruction.cs" />
-    <Compile Include="InstructionFormat.cs" />
     <Compile Include="Line.cs" />
     <Compile Include="ListExtensions.cs" />
     <Compile Include="Program.cs" />

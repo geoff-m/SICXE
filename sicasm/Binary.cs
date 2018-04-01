@@ -29,7 +29,7 @@ namespace SICXE
         }
 
         /// <summary>
-        /// Creates an OBJ file for loading into a SIC/XE simulator.
+        /// Creates an OBJ file for loading into a SIC/XE machine.
         /// </summary>
         /// <param name="path"></param>
         public void WriteOBJ(string path)
