@@ -62,6 +62,7 @@ namespace SICXE
                 case Mnemonic.EQU:
                 case Mnemonic.START:
                 case Mnemonic.WORD:
+                case Mnemonic.BASE:
                     if (tokens.Length < 2) // Argument of these is required.
                     {
                         result = null;

@@ -139,7 +139,7 @@ namespace SICXE
                                     Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{label}\"");
                                     return false;
                                 }
-                                symbols[label].Address = bytesSoFar;
+                                //symbols[label].Address = bytesSoFar;
                             }
 
                             int dataLength = match.Groups[2].Value.Length;
@@ -178,12 +178,12 @@ namespace SICXE
                                 label = line.Label;
                                 if (label != null)
                                 {
-                                    if (!SetSymbolAddress(label, val))
+                                    if (!SetSymbolAddress(label, bytesSoFar))
                                     {
                                         Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{line.Label}\"");
                                         return false;
                                     }
-                                    symbols[label].Address = bytesSoFar;
+                                    //symbols[label].Address = bytesSoFar;
                                 }
 
                                 line.Address = bytesSoFar;
@@ -216,11 +216,11 @@ namespace SICXE
                                 {
                                     if (!SetSymbolAddress(label, bytesSoFar))
                                     {
-
                                         Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{line.Label}\"");
                                         return false;
                                     }
-                                    symbols[label].Address = bytesSoFar;
+
+                                    //symbols[label].Address = bytesSoFar;
                                 }
 
                                 line.Address = bytesSoFar;
@@ -266,6 +266,16 @@ namespace SICXE
                                 Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tCannot parse start address \"{dir.Value}\".");
                                 return false;
                             }
+                            label = dir.Label;
+                            if (label != null)
+                            {
+                                if (!SetSymbolAddress(label, bytesSoFar))
+                                {
+                                    Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{line.Label}\"");
+                                    return false;
+                                }
+                            }
+
                             break;
                         case AssemblerDirective.Mnemonic.END:
                             if (hitEnd)
@@ -321,6 +331,27 @@ namespace SICXE
                             }
                             Console.Error.WriteLine($"Info: Line {lineIdx + 1}:\t{literalBytesSoFar} bytes of literals pertain to LTORG at 0x{line.Address.Value.ToString("X")}.");
                             bytesSoFar += literalBytesSoFar;
+                            break;
+                        case AssemblerDirective.Mnemonic.BASE:
+                            if (hitEnd)
+                            {
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                                return false;
+                            }
+
+                            line.Address = bytesSoFar;
+                            label = line.Label;
+                            if (label != null)
+                            {
+                                if (!SetSymbolAddress(label, bytesSoFar))
+                                {
+                                    Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{line.Label}\"");
+                                    return false;
+                                }
+                            }
+
+                            TouchSymbol(dir.Value);
+
                             break;
                     } // switch (dir.Directive).
 

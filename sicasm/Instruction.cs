@@ -358,26 +358,6 @@ namespace SICXE
                                 operand.AddressingMode = AddressingMode.Immediate;
                                 token = token.Substring(1);
                                 break;
-                            //case '=':
-                            //    // Whether next character is X or C will determine if this is supposed to be a literal.
-                            //    if (token.Length > 1)
-                            //    {
-                            //        switch (token[1])
-                            //        {
-                            //            case 'x':
-                            //            case 'X':
-
-                            //                break;
-                            //            case 'c':
-                            //            case 'C':
-
-                            //                break;
-                            //            default:
-
-                            //                break;
-                            //        }
-                            //    }
-                            //    break;
                         }
 
                         // Interpret the remainder of the token as an address, if possible, or else a symbol.
