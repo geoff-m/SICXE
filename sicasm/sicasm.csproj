@@ -61,6 +61,7 @@
     <Compile Include="Word.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="documentation" />
     <Content Include="Literals.txt" />
     <Content Include="Questions.txt" />
     <Content Include="TODO.txt" />
