@@ -11,7 +11,7 @@ namespace SICXE
         {
             if (args.Length != 1)
             {
-                Console.WriteLine("Expected 1 argument: Path to assembly file");
+                Console.Error.WriteLine("Expected 1 argument: Path to assembly file");
                 return;
             }
             var path = args[0];
@@ -24,23 +24,26 @@ namespace SICXE
                     var outpath = path + ".lst";
                     if (assembler.PassOne(outpath))
                     {
-                        Console.WriteLine($"\nAssembly pass one succeeded. Listing file written to \"{outpath}\"");
+                        Console.Error.WriteLine($"\nAssembly pass one succeeded. Listing file written to \"{outpath}\"");
+
+                        Console.WriteLine();
+                        assembler.PrintSymbolTable();
                     }
                     else
                     {
-                        Console.WriteLine("\nAssembly pass one failed.");
+                        Console.Error.WriteLine("\nAssembly pass one failed.");
                     }
                 }
             }
             catch (IOException ex)
             {
-                Console.WriteLine($"Error: {ex.Message}");
+                Console.Error.WriteLine($"Error: {ex.Message}");
             }
         }
         
         static void WriteRandomProgram(string path, int lineCount)
         {
-            Console.WriteLine($"Generating random {lineCount} line program...");
+            Console.Error.WriteLine($"Generating random {lineCount} line program...");
             StreamWriter write = null;
             Program rp = null;
             try
@@ -50,7 +53,7 @@ namespace SICXE
                 rp = pgen.MakeRandomProgram(lineCount);
                 foreach (var line in rp)
                 {
-                    //Console.WriteLine(line.ToString(10));
+                    //Console.Error.WriteLine(line.ToString(10));
                     write.WriteLine(line.ToString(10));
                 }
             }
@@ -59,7 +62,7 @@ namespace SICXE
                 if (write != null)
                     write.Dispose();
             }
-            Console.WriteLine($"Done. Program has {rp.Count} lines.");
+            Console.Error.WriteLine($"Done. Program has {rp.Count} lines.");
         }
 
         static void TestProgramParser()
@@ -69,33 +72,33 @@ namespace SICXE
 
             WriteRandomProgram(TEST_PROGRAM_PATH, TEST_PROGRAM_SIZE);
 
-            Console.WriteLine($"\nParsing...");
+            Console.Error.WriteLine($"\nParsing...");
             Program parsed;
             if (Program.TryParse(TEST_PROGRAM_PATH, out parsed))
             {
-                Console.WriteLine($"Parsing {TEST_PROGRAM_PATH} succeeded.");
+                Console.Error.WriteLine($"Parsing {TEST_PROGRAM_PATH} succeeded.");
 
                 var asm = new Assembler(parsed);
                 if (asm.PassOne(TEST_PROGRAM_PATH + ".lst"))
                 {
-                    Console.WriteLine("Assembly pass one succeeded.");
+                    Console.Error.WriteLine("Assembly pass one succeeded.");
                     if (asm.PassTwo())
                     {
-                        Console.WriteLine("Assembly pass two succeeded.");
+                        Console.Error.WriteLine("Assembly pass two succeeded.");
                     }
                     else
                     {
-                        Console.WriteLine("Assembly pass two failed.");
+                        Console.Error.WriteLine("Assembly pass two failed.");
                     }
                 }
                 else
                 {
-                    Console.WriteLine("Assembly pass one failed.");
+                    Console.Error.WriteLine("Assembly pass one failed.");
                 }
             }
             else
             {
-                Console.WriteLine($"Parsing {TEST_PROGRAM_PATH} failed.");
+                Console.Error.WriteLine($"Parsing {TEST_PROGRAM_PATH} failed.");
             }
 
 

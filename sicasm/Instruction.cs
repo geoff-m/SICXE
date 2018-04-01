@@ -286,7 +286,7 @@ namespace SICXE
                 if (fmt != InstructionFormat.NotSet)
                 {
                     // Instruction already knows its format but we planned to set it to something!
-                    Console.WriteLine($"Instruction {m} must be format {(int)ret.Format} (prefix indicated format {(int)fmt})!");
+                    Console.Error.WriteLine($"Instruction {m} must be format {(int)ret.Format} (prefix indicated format {(int)fmt})!");
                     result = null;
                     return false;
                 }
@@ -321,7 +321,7 @@ namespace SICXE
                     {
                         if (afterComma != "x")
                         {
-                            Console.WriteLine($"Unexpected ',' in {string.Join(" ", tokens)}");
+                            Console.Error.WriteLine($"Unexpected ',' in {string.Join(" ", tokens)}");
                             result = null;
                             return false;
                         }
@@ -400,7 +400,7 @@ namespace SICXE
                         }
                         else
                         {
-                            Console.WriteLine($"Could not parse {token} as a register.");
+                            Console.Error.WriteLine($"Could not parse {token} as a register.");
                             result = null;
                             return false;
                         }

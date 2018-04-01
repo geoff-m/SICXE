@@ -62,7 +62,7 @@ namespace SICXE
                     // Treat the first token as a label.
                     if (TryParseWithoutLabel(tokens.Skip(1).ToArray(), out result))
                     {
-                        Console.WriteLine($"Warning: Extra whitespace at start of line \"{s}\"");
+                        Console.Error.WriteLine($"Warning: Extra whitespace at start of line \"{s}\"");
                         result.Label = tokens[0];
                         return true;
                     }
@@ -83,11 +83,11 @@ namespace SICXE
                         // The line had no label.
                         if (result is AssemblerDirective)
                         {
-                            Console.WriteLine($"Warning: Assembler directive should be preceded by whitespace: \"{s}\"");
+                            Console.Error.WriteLine($"Warning: Assembler directive should be preceded by whitespace: \"{s}\"");
                         }
                         else
                         {
-                            Console.WriteLine($"Warning: Instruction should be preceded by whitespace: \"{s}\"");
+                            Console.Error.WriteLine($"Warning: Instruction should be preceded by whitespace: \"{s}\"");
                         }
                         return true;
                     }

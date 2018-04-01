@@ -48,7 +48,7 @@ namespace SICXE
         private void GenerateSymbols(int lineCount)
         {
             const double THRESHOLD = CHANCE_MEMORY * CHANCE_USE_SYMBOL;
-            Console.WriteLine($"Generating about {(int)(lineCount * THRESHOLD)} symbols...");
+            Console.Error.WriteLine($"Generating about {(int)(lineCount * THRESHOLD)} symbols...");
             var names = new HashSet<string>();
             for (int i = 0; i < lineCount; ++i)
             {
@@ -63,7 +63,7 @@ namespace SICXE
             }
             foreach (var name in names)
                 symbols.Add(new Symbol(name));
-            Console.WriteLine($"Generated {symbols.Count} symbols.");
+            Console.Error.WriteLine($"Generated {symbols.Count} symbols.");
         }
 
         System.Timers.Timer t;
@@ -80,10 +80,10 @@ namespace SICXE
         {
             int top = Console.CursorTop;
             Console.CursorLeft = 0;
-            Console.Write(new string(' ', Console.WindowWidth));
+            Console.Error.Write(new string(' ', Console.WindowWidth));
             Console.CursorLeft = 0;
             Console.CursorTop = top;
-            Console.Write(str);
+            Console.Error.Write(str);
             Console.CursorTop = top;
         }
 
@@ -199,7 +199,7 @@ namespace SICXE
 
             t.Stop();
 
-            Console.WriteLine();
+            Console.Error.WriteLine();
             return ret;
         }
 

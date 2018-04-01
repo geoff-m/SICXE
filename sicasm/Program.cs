@@ -136,7 +136,7 @@ namespace SICXE
                     }
                     else
                     {
-                        Console.WriteLine($"Parsing line {lineCount} failed: \"{textLine}\"");
+                        Console.Error.WriteLine($"Parsing line {lineCount} failed: \"{textLine}\"");
                         ++errorCount;
                     }
                 }
@@ -146,7 +146,7 @@ namespace SICXE
                 if (read != null)
                     read.Dispose();
             }
-            Console.WriteLine("\nParse completed with {0} {1}.",
+            Console.Error.WriteLine("\nParse completed with {0} {1}.",
                 errorCount,
                 errorCount == 1 ? "error" : "errors");
             if (errorCount == 0)

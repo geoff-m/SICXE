@@ -15,19 +15,19 @@ namespace SICXE
             var inst = new Assembler(prog);
             if (!inst.PassOne())
             {
-                Console.WriteLine("Pass one failed.");
+                Console.Error.WriteLine("Pass one failed.");
                 result = null;
                 return false;
             }
-            Console.WriteLine("Pass one succeeded.");
+            Console.Error.WriteLine("Pass one succeeded.");
 
             if (!inst.PassTwo())
             {
-                Console.WriteLine("Pass two failed.");
+                Console.Error.WriteLine("Pass two failed.");
                 result = null;
                 return false;
             }
-            Console.WriteLine("Pass two succeeded.");
+            Console.Error.WriteLine("Pass two succeeded.");
 
             bool addSuccess = inst.outputBinary.AddSegment(inst.codeSegment);
             if (!addSuccess)
@@ -80,7 +80,7 @@ namespace SICXE
                 // This indicates a bug.
                 throw new InvalidOperationException("Pass one has already been done!");
             }
-            Console.WriteLine("\nBeginning pass one...");
+            Console.Error.WriteLine("\nBeginning assembly pass one...\n");
             StreamWriter writer = null;
             if (lstPath != null)
             {
@@ -91,9 +91,11 @@ namespace SICXE
                 writer.WriteLine("-------------------------------------------------");
                 writer.WriteLine("Assembler First Pass Report");
                 writer.WriteLine("---------------------------");
-                writer.WriteLine("Line\tAddress\tSource");
-                writer.WriteLine("----\t-------\t---------------------------------");
+                writer.WriteLine("Line   Address\tSource");
+                writer.WriteLine("----   -------\t---------------------------------");
             }
+            Console.Error.WriteLine("Line   Address\tSource");
+            Console.Error.WriteLine("----   -------\t---------------------------------");
 
             int bytesSoFar = 0;
 
@@ -111,12 +113,12 @@ namespace SICXE
                         case AssemblerDirective.Mnemonic.BYTE:
                             if (dir.Value == null)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tIncomplete BYTE declaration is not allowed: {line.ToString()}");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tIncomplete BYTE declaration is not allowed: {line.ToString()}");
                                 return false;
                             }
                             if (hitEnd)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
                                 return false;
                             }
 
@@ -124,7 +126,7 @@ namespace SICXE
                             var match = byteRegex.Match(dir.Value);
                             if (!match.Success)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tCannot parse argument to BYTE directive.");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tCannot parse argument to BYTE directive.");
                                 return false;
                             }
 
@@ -134,7 +136,7 @@ namespace SICXE
                             {
                                 if (!SetSymbolAddress(label, bytesSoFar))
                                 {
-                                    Console.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{label}\"");
+                                    Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{label}\"");
                                     return false;
                                 }
                                 symbols[label].Address = bytesSoFar;
@@ -147,7 +149,7 @@ namespace SICXE
                                 case 'X':
                                     if (dataLength % 2 != 0)
                                     {
-                                        Console.WriteLine($"Warning: Line {lineIdx + 1}:\tHex string has uneven number of characters. The left will be padded with 0.");
+                                        Console.Error.WriteLine($"Warning: Line {lineIdx + 1}:\tHex string has uneven number of characters. The left will be padded with 0.");
                                     }
                                     // For a hex literal, each pair of characters is a byte.
                                     bytesSoFar += (int)Math.Ceiling(dataLength / 2d);
@@ -162,12 +164,12 @@ namespace SICXE
                         case AssemblerDirective.Mnemonic.WORD:
                             if (dir.Value == null)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tIncomplete WORD declaration is not allowed: {line.ToString()}");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tIncomplete WORD declaration is not allowed: {line.ToString()}");
                                 return false;
                             }
                             if (hitEnd)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
                                 return false;
                             }
 
@@ -178,7 +180,7 @@ namespace SICXE
                                 {
                                     if (!SetSymbolAddress(label, val))
                                     {
-                                        Console.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{line.Label}\"");
+                                        Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{line.Label}\"");
                                         return false;
                                     }
                                     symbols[label].Address = bytesSoFar;
@@ -190,7 +192,7 @@ namespace SICXE
                             else
                             {
                                 // todo: some word directives don't have the form of an integer. handle these.
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tCould not parse word \"{dir.Value}\" in \"{dir.ToString()}\"");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tCould not parse word \"{dir.Value}\" in \"{dir.ToString()}\"");
                                 return false;
                             }
                             break;
@@ -198,12 +200,12 @@ namespace SICXE
                         case AssemblerDirective.Mnemonic.RESB:
                             if (dir.Value == null)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tIncomplete RESW or RESB declaration is not allowed: {line.ToString()}");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tIncomplete RESW or RESB declaration is not allowed: {line.ToString()}");
                                 return false;
                             }
                             if (hitEnd)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
                                 return false;
                             }
 
@@ -215,7 +217,7 @@ namespace SICXE
                                     if (!SetSymbolAddress(label, bytesSoFar))
                                     {
 
-                                        Console.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{line.Label}\"");
+                                        Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple definitions of symbol \"{line.Label}\"");
                                         return false;
                                     }
                                     symbols[label].Address = bytesSoFar;
@@ -233,25 +235,25 @@ namespace SICXE
                             }
                             else
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tCould not parse integer \"{dir.Value}\" in \"{dir.ToString()}\"");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tCould not parse integer \"{dir.Value}\" in \"{dir.ToString()}\"");
                                 return false;
                             }
                             break;
                         case AssemblerDirective.Mnemonic.START:
                             if (hitEnd)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
                                 return false;
                             }
                             if (startAddress.HasValue)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tMultiple START directives are not allowed.");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tMultiple START directives are not allowed.");
                                 return false;
                             }
 
                             if (dir.Value == null)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tSTART directive must be followed by an address!");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tSTART directive must be followed by an address!");
                                 return false;
                             }
                             if (int.TryParse(dir.Value, System.Globalization.NumberStyles.HexNumber, null, out val))
@@ -261,21 +263,21 @@ namespace SICXE
                             }
                             else
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tCannot parse start address \"{dir.Value}\".");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tCannot parse start address \"{dir.Value}\".");
                                 return false;
                             }
                             break;
                         case AssemblerDirective.Mnemonic.END:
                             if (hitEnd)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tMultiple END directives are not allowed.");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tMultiple END directives are not allowed.");
                                 return false;
                             }
                             hitEnd = true;
 
                             if (dir.Value == null)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tWarning: Empty END directive.");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tWarning: Empty END directive.");
                             }
                             else
                             {
@@ -284,7 +286,7 @@ namespace SICXE
                                     if (line.Label != null)
                                         if (!CreateSymbol(line.Label))
                                         {
-                                            Console.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple declarations of symbol \"{line.Label}\"");
+                                            Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple declarations of symbol \"{line.Label}\"");
                                             return false;
                                         }
                                 }
@@ -300,7 +302,7 @@ namespace SICXE
                         case AssemblerDirective.Mnemonic.LTORG:
                             if (hitEnd)
                             {
-                                Console.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                                Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
                                 return false;
                             }
 
@@ -313,17 +315,18 @@ namespace SICXE
                                 Literal lit = sym.Value as Literal;
                                 if (lit != null)
                                 {
+                                    lit.Address = bytesSoFar + literalBytesSoFar;
                                     literalBytesSoFar += lit.Data.Length;
                                 }
                             }
-                            Console.WriteLine($"Info: Line {lineIdx + 1}:\t{literalBytesSoFar} bytes of literals pertain to LTORG at 0x{line.Address.Value.ToString("X")}.");
+                            Console.Error.WriteLine($"Info: Line {lineIdx + 1}:\t{literalBytesSoFar} bytes of literals pertain to LTORG at 0x{line.Address.Value.ToString("X")}.");
                             bytesSoFar += literalBytesSoFar;
                             break;
                     } // switch (dir.Directive).
 
                     if (!startAddress.HasValue)
                     {
-                        Console.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear before START.");
+                        Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tAssembler directive \"{dir.ToString()}\" cannot appear before START.");
                         return false;
                     }
                 }
@@ -331,12 +334,12 @@ namespace SICXE
                 {
                     if (!startAddress.HasValue)
                     {
-                        Console.WriteLine($"Error: Line {lineIdx + 1}:\tCode cannot appear before START directive.");
+                        Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tCode cannot appear before START directive.");
                         return false;
                     }
                     if (hitEnd)
                     {
-                        Console.WriteLine($"Error: Line {lineIdx + 1}:\tCode cannot appear after END.");
+                        Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tCode cannot appear after END.");
                         return false;
                     }
 
@@ -349,7 +352,7 @@ namespace SICXE
                     {
                         if (!CreateSymbol(label))
                         {
-                            Console.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple declarations of symbol \"{label}\"");
+                            Console.Error.WriteLine($"Error: Line {lineIdx + 1}:\tError: Multiple declarations of symbol \"{label}\"");
                             return false;
                         }
                         symbols[label].Address = bytesSoFar;
@@ -379,10 +382,13 @@ namespace SICXE
                     if (separation < 1)
                         separation = 1;
                     string address = line.Address.HasValue ? (startAddress.Value + line.Address.Value).ToString("X6") : "??????";
+                    string printedLine;
                     if (line.Comment != null && line.Comment.Length > 0)
-                        writer.WriteLine($"{lineIdx.ToString("D3")}\t\t{address}\t{line.ToString(separation)}    \t{line.Comment}");
+                        printedLine = $"{lineIdx.ToString("D3")}    {address}\t{line.ToString(separation)}    \t{line.Comment}";
                     else
-                        writer.WriteLine($"{lineIdx.ToString("D3")}\t\t{address}\t{line.ToString(separation)}");
+                        printedLine = $"{lineIdx.ToString("D3")}    {address}\t{line.ToString(separation)}";
+                    Console.WriteLine(printedLine);
+                    writer.WriteLine(printedLine);
 
                 }
             }
@@ -484,7 +490,7 @@ namespace SICXE
             }
             else
             {
-                Console.WriteLine($"Warning: No END directive. Assuming entry point is {codeSegment.BaseAddress}.");
+                Console.Error.WriteLine($"Warning: No END directive. Assuming entry point is {codeSegment.BaseAddress}.");
             }
 
             donePassTwo = true;
@@ -646,6 +652,40 @@ namespace SICXE
             return symbol;
         }
 
+        public void PrintSymbolTable()
+        {
+            if (symbols == null)
+                return;
+
+            Console.WriteLine($"The symbol table contains {symbols.Count} entries.");
+
+            int start;
+            if (startAddress.HasValue)
+            {
+                start = startAddress.Value;
+                Console.WriteLine("Name\t\tAddress");
+                Console.WriteLine("----\t\t-------");
+            } else
+            {
+                start = 0;
+                Console.WriteLine("Name\t\tAddress (Relative)");
+                Console.WriteLine("----\t\t------------------");
+            }
+                
+            foreach (var sym in symbols.Values)
+            {
+                if (sym.Address.HasValue)
+                {
+                    Console.WriteLine($"{sym.Name}\t\t{(start + sym.Address.Value).ToString("X6")}");
+                } else
+                {
+                    Console.WriteLine($"{sym.Name}\t\t<not set>");
+                }
+                
+            }
+            Console.WriteLine();
+        }
+
         /// <summary>
         /// Creates the symbol with the specified name if it does not exist.
         /// </summary>
@@ -741,10 +781,10 @@ namespace SICXE
 
         private void ReportError(string message, Line line)
         {
-            Console.WriteLine($"\nError: {message}");
+            Console.Error.WriteLine($"\nError: {message}");
             if (line != null)
             {
-                Console.WriteLine($"Line {line.Number}:\n\t{line.ToString()}");
+                Console.Error.WriteLine($"Line {line.Number}:\n\t{line.ToString()}");
             }
         }
     }
