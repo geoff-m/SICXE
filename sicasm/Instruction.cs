@@ -332,7 +332,7 @@ namespace SICXE
                     }
                     else
                     {
-                        if (afterComma != "x")
+                        if (afterComma != "x" && afterComma != "X")
                         {
                             Console.Error.WriteLine($"Unexpected ',' in {string.Join(" ", tokens)}");
                             result = null;

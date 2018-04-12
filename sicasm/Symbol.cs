@@ -39,8 +39,8 @@ namespace SICXE
         public enum LiteralType
         {
             NotSet = 0,
-            Hex = 1,
-            Byte = 2
+            Hex = 1, // the literal is a hexadecimal number.
+            Byte = 2 // the literal is given as ASCII text.
         }
 
         public LiteralType Type
@@ -68,6 +68,7 @@ namespace SICXE
             }
             else if (type == 'c')
             {
+                Type = LiteralType.Byte;
                 Data = System.Text.Encoding.ASCII.GetBytes(payload);
             }
             else

@@ -17,7 +17,7 @@ namespace SICXE
             var path = args[0];
             try
             {
-                Program myProgram;
+                Program myProgram = null;
                 if (Program.TryParse(path, out myProgram))
                 {
                     var assembler = new Assembler(myProgram);
@@ -28,6 +28,15 @@ namespace SICXE
 
                         Console.WriteLine();
                         assembler.PrintSymbolTable();
+
+                        if (assembler.PassTwo())
+                        {
+                            Console.Error.WriteLine("\nAssembly pass two succeeded.");
+                        }
+                        else
+                        {
+                            Console.Error.WriteLine("\nAssembly pass two failed.");
+                        }
                     }
                     else
                     {
@@ -40,7 +49,7 @@ namespace SICXE
                 Console.Error.WriteLine($"Error: {ex.Message}");
             }
         }
-        
+
         static void WriteRandomProgram(string path, int lineCount)
         {
             Console.Error.WriteLine($"Generating random {lineCount} line program...");

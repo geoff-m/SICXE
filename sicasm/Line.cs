@@ -24,7 +24,7 @@ namespace SICXE
         /// <summary>
         /// The number this line had in the original file.
         /// </summary>
-        public int Number
+        public int LineNumber
         { get; set; }
 
 
