@@ -458,6 +458,8 @@ namespace SICXE
                 Instruction instr = line as Instruction;
                 if (instr != null)
                 {
+                    Debug.Assert(instr.Address == ip);
+
                     // Set each operand symbol's address using the symbol table.
                     for (int operandIdx = 0; operandIdx < instr.Operands.Count; ++operandIdx)
                     {
@@ -470,8 +472,6 @@ namespace SICXE
                         }
                     }
                     var operands = instr.Operands;
-
-                    Debug.Assert(instr.Address == ip);
 
                     switch (instr.Format)
                     {
@@ -524,6 +524,7 @@ namespace SICXE
                 AssemblerDirective dir = line as AssemblerDirective;
                 if (dir != null)
                 {
+                    Debug.Assert(dir.Address == ip);
                     byte[] buf;
                     switch (dir.Directive)
                     {
@@ -544,27 +545,54 @@ namespace SICXE
                             }
                             break;
                         case AssemblerDirective.Mnemonic.BYTE:
-                            buf = System.Text.Encoding.ASCII.GetBytes(dir.Value);
+                            try
+                            {
+                                buf = AssembleByteDirective(dir);
+                            }
+                            catch (Exception ex)
+                            {
+                                if (!(ex is ArgumentException || ex is FormatException))
+                                    throw;
+                                ReportError($"Could not parse argument to byte directive.", dir);
+                                return false;
+                            }
                             Array.Copy(buf, 0, mainSegment.Data, ip, buf.Length);
-                            ip += dir.Value.Length;
+                            ip += buf.Length;
                             break;
-                        case AssemblerDirective.Mnemonic.RESW:
+                        case AssemblerDirective.Mnemonic.WORD:
+                            Word parsed;
+                            if (!Word.TryParse(dir.Value, out parsed))
+                            {
+                                ReportError($"Could not parse word \"{dir.Value}\".", dir);
+                                return false;
+                            }
+                            buf = parsed.ToArray();
+                            Debug.Assert(buf.Length == Word.Size);
+                            Array.Copy(buf, 0, mainSegment.Data, ip, buf.Length);
+                            ip += buf.Length;
+                            break;
+                        case AssemblerDirective.Mnemonic.RESW: // todo: change this to push new Segment to binary.
                             int size;
                             if (int.TryParse(dir.Value, out size))
                             {
                                 ip += size * Word.Size;
-                            } else
+                            }
+                            else
                             {
                                 ReportError($"Could not parse \"{dir.Value}\". Only integers are supported in RESW directive.", dir);
                                 return false;
                             }
+                            break;
+                        case AssemblerDirective.Mnemonic.END:
+                            // Don't do anything.
+                            // In pass one, Symbol this.entryPoint should have already been set.
                             break;
                         default:
                             // This indicates a bug.
 #if DEBUG
                             throw new ArgumentException($"Unrecognized assembler directive.");
 #else
-                        ReportError("Unrecognized assembler directive.", instr);
+                        ReportError("Ignoring unrecognized assembler directive.", instr);
                         break;
 #endif
                     }
@@ -575,7 +603,7 @@ namespace SICXE
             {
                 if (entryPoint.Address.HasValue)
                 {
-                    outputBinary.EntryPoint = entryPoint.Address.Value;
+                    outputBinary.EntryPoint = entryPoint.Address.Value + mainSegment.BaseAddress.Value;
                 }
                 else
                 {
@@ -590,6 +618,32 @@ namespace SICXE
             donePassTwo = true;
             return true;
         } // PassTwo().
+
+        // Called during pass two.
+        private byte[] AssembleByteDirective(AssemblerDirective dir)
+        {
+            if (dir.Directive != AssemblerDirective.Mnemonic.BYTE)
+                throw new ArgumentException("Directive must be of BYTE type fo be processed by this method.");
+
+            string str = dir.Value;
+            char byteType = dir.Value[0];
+            string payload = dir.Value.Substring(2, str.Length - 3);
+            switch (byteType)
+            {
+                case 'c':
+                case 'C':
+                    return System.Text.Encoding.ASCII.GetBytes(dir.Value);
+                case 'x':
+                case 'X':
+                    if ((payload.Length & 1) > 0)
+                    {
+                        Console.Error.WriteLine("Warning: Hex literal contains uneven number of characters. The left will be padded with 0.");
+                        payload = '0' + payload;
+                    }
+                    return Literal.GetBytesFromHexString(payload);
+            }
+            throw new ArgumentException(nameof(dir));
+        }
 
         // Called during pass two (but could be called during pass one!)
         private byte[] AssembleFormat2(Instruction instr)

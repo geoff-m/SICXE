@@ -77,13 +77,14 @@ namespace SICXE
             }
         }
 
-        private static byte[] GetBytesFromHexString(string str)
+        public static byte[] GetBytesFromHexString(string str)
         {
             int len = str.Length;
-            var ret = new byte[len / 2];
+            var ret = new byte[(int)Math.Ceiling(len / 2d)];
             for (int i = 0; i < len; i += 2)
             {
-                ret[i / 2] = byte.Parse(str.Substring(i, 2), System.Globalization.NumberStyles.AllowHexSpecifier);
+                int take = Math.Min(2, len - i);
+                ret[i / 2] = byte.Parse(str.Substring(i, take), System.Globalization.NumberStyles.AllowHexSpecifier);
             }
             return ret;
         }

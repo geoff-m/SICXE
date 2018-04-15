@@ -49,6 +49,11 @@ namespace SICXE
             return ret;
         }
 
+        public byte[] ToArray()
+        {
+            return new byte[] { Low, Middle, High };
+        }
+
         public static explicit operator Word(int n)
         {
             return new Word((byte)n,
@@ -87,6 +92,24 @@ namespace SICXE
         public string ToString(string format)
         {
             return ((int)this).ToString(format);
+        }
+
+        public static Word Parse(string str)
+        {
+            int v = int.Parse(str);
+            return (Word)v;
+        }
+
+        public static bool TryParse(string str, out Word result)
+        {
+            int v;
+            if (int.TryParse(str, out v))
+            {
+                result = (Word)v;
+                return true;
+            }
+            result = default(Word);
+            return false;
         }
     }
 }

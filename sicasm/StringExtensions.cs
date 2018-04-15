@@ -14,6 +14,7 @@ namespace SICXE
         // Only splits once on contiguous whitespace.
         {
             const char QUOTATION_MARK = '\'';
+            const char ESCAPE_CHARACTER = '\\';
             if (str.Length == 0)
                 return new string[0];
             var ret = new List<string>();
@@ -25,19 +26,13 @@ namespace SICXE
                 char c = str[i];
                 if (insideliteral)
                 {
-                    if (c == QUOTATION_MARK && (i > 0 || str[i - 1] != '\\'))
-                    {
+                    if (c == QUOTATION_MARK && (i > 0 || str[i - 1] != ESCAPE_CHARACTER))
                         insideliteral = false;
-                    }
-                    else
-                    {
-                        //Debug.WriteLine("literal: " + current.ToString());
-                    }
                     current.Append(c);
                 }
                 else
                 {
-                    if (c == QUOTATION_MARK && (i == 0 || str[i - 1] != '\\'))
+                    if (c == QUOTATION_MARK && (i == 0 || str[i - 1] != ESCAPE_CHARACTER))
                     {
                         inwhite = false;
                         insideliteral = true;
@@ -49,7 +44,6 @@ namespace SICXE
                         if (!inwhite)
                         {
                             // This is a transition to white.
-                            //Debug.WriteLine("pushing " + current.ToString());
                             ret.Add(current.ToString());
                             current.Clear();
                             inwhite = true;
@@ -59,13 +53,11 @@ namespace SICXE
                     {
                         inwhite = false;
                         current.Append(c);
-                        //Debug.WriteLine("cat name: " + current.ToString());
                     }
                 }
             }
             if (!inwhite && current.Length > 0)
             {
-                //Debug.WriteLine("pushing " + current.ToString());
                 ret.Add(current.ToString());
             }
 
