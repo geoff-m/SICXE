@@ -28,10 +28,6 @@ namespace SICXE
             }
             Console.Error.WriteLine("Pass two succeeded.");
 
-            bool addSuccess = inst.outputBinary.AddSegment(inst.mainSegment);
-            if (!addSuccess)
-                Debug.Fail("Failed to add code segment to binary!");
-
             result = inst.outputBinary;
             return true;
         }
@@ -44,11 +40,6 @@ namespace SICXE
             prog = p;
             outputBinary = new Binary();
         }
-
-        /// <summary>
-        /// The segment what contains code.
-        /// </summary>
-        private Segment mainSegment;
 
         /// <summary>
         /// This points to somewhere in 'codeSegment'.
@@ -433,23 +424,23 @@ namespace SICXE
         }
 
         bool donePassTwo = false;
-        // Generates displacements.
-        public bool PassTwo()
+        public bool PassTwo(string listPath = null)
         {
             if (donePassTwo)
             {
                 // This indicates a bug.
                 throw new InvalidOperationException("Pass two has already been done!");
             }
-            Debug.Assert(mainSegment == null);
-            mainSegment = new Segment
+            int currentSegmentStart = startAddress.Value;
+            Segment currentSegment = new Segment
             {
-                BaseAddress = startAddress.Value,
-                Data = new byte[totalBytes]
+                BaseAddress = currentSegmentStart,
+                Data = new List<byte>()
             };
-            outputBinary.AddSegment(mainSegment);
+            //outputBinary.AddSegment(currentSegment);
 
-            int ip = 0; // Index in the code segment.
+            int segmentIndex = 0; // Index in the code segment.
+            int overallIndex = 0;
             byte[] binInstr = null;
             int? @base = null; // for base directive.
             for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
@@ -458,7 +449,7 @@ namespace SICXE
                 Instruction instr = line as Instruction;
                 if (instr != null)
                 {
-                    Debug.Assert(instr.Address == ip);
+                    Debug.Assert(instr.Address == overallIndex);
 
                     // Set each operand symbol's address using the symbol table.
                     for (int operandIdx = 0; operandIdx < instr.Operands.Count; ++operandIdx)
@@ -478,7 +469,7 @@ namespace SICXE
                         case InstructionFormat.Format1:
                             if (operands.Count != 0)
                             {
-                                ReportError($"Format 1 instruction takes no operands, but {string.Join(", ", operands)} was given!", instr);
+                                ReportError($"Format 1 instruction takes no operands, but \"{string.Join(", ", operands)}\" was given!", instr);
                                 return false;
                             }
                             binInstr = new byte[] { (byte)instr.Operation };
@@ -486,7 +477,7 @@ namespace SICXE
                         case InstructionFormat.Format2:
                             if (!(operands.Count == 1 || operands.Count == 2))
                             {
-                                ReportError($"Format 2 instruction takes 1 or 2 operands, but {string.Join(", ", operands)} was given!", instr);
+                                ReportError($"Format 2 instruction takes 1 or 2 operands, but \"{string.Join(", ", operands)}\" was given!", instr);
                                 return false;
                             }
                             binInstr = AssembleFormat2(instr);
@@ -515,8 +506,10 @@ namespace SICXE
                         break;
 #endif
                     }
-                    Array.Copy(binInstr, 0, mainSegment.Data, ip, binInstr.Length);
-                    ip += binInstr.Length;
+                    currentSegment.Data.AddRange(binInstr);
+                    //Array.Copy(binInstr, 0, currentSegment.Data, segmentIndex, binInstr.Length);
+                    segmentIndex += binInstr.Length;
+                    overallIndex += binInstr.Length;
                     continue; // Done processing instruction.
                 }
 
@@ -524,18 +517,21 @@ namespace SICXE
                 AssemblerDirective dir = line as AssemblerDirective;
                 if (dir != null)
                 {
-                    Debug.Assert(dir.Address == ip);
+                    Debug.Assert(dir.Address == segmentIndex);
                     byte[] buf;
                     switch (dir.Directive)
                     {
                         case AssemblerDirective.Mnemonic.START:
                             // Don't do anything.
                             break;
+                        case AssemblerDirective.Mnemonic.END:
+                            // Don't do anything.
+                            // In pass one, Symbol this.entryPoint should have already been set.
+                            break;
                         case AssemblerDirective.Mnemonic.BASE:
                             Symbol baseSymbol;
                             if (symbols.TryGetValue(dir.Value, out baseSymbol) && baseSymbol.Address.HasValue)
                             {
-
                                 @base = baseSymbol.Address.Value;
                             }
                             else
@@ -556,8 +552,10 @@ namespace SICXE
                                 ReportError($"Could not parse argument to byte directive.", dir);
                                 return false;
                             }
-                            Array.Copy(buf, 0, mainSegment.Data, ip, buf.Length);
-                            ip += buf.Length;
+                            currentSegment.Data.AddRange(buf);
+                            //Array.Copy(buf, 0, currentSegment.Data, segmentIndex, buf.Length);
+                            segmentIndex += buf.Length;
+                            overallIndex += buf.Length;
                             break;
                         case AssemblerDirective.Mnemonic.WORD:
                             Word parsed;
@@ -568,24 +566,31 @@ namespace SICXE
                             }
                             buf = parsed.ToArray();
                             Debug.Assert(buf.Length == Word.Size);
-                            Array.Copy(buf, 0, mainSegment.Data, ip, buf.Length);
-                            ip += buf.Length;
+                            currentSegment.Data.AddRange(buf);
+                            //Array.Copy(buf, 0, currentSegment.Data, segmentIndex, buf.Length);
+                            segmentIndex += buf.Length;
+                            overallIndex += buf.Length;
                             break;
-                        case AssemblerDirective.Mnemonic.RESW: // todo: change this to push new Segment to binary.
+                        case AssemblerDirective.Mnemonic.RESW:
                             int size;
                             if (int.TryParse(dir.Value, out size))
                             {
-                                ip += size * Word.Size;
+                                outputBinary.AddSegment(currentSegment); // Push current segment.
+
+                                var newSeg = new Segment(); // Begin new segment.
+                                newSeg.BaseAddress = startAddress.Value + segmentIndex;
+                                newSeg.Data = new List<byte>();
+                                outputBinary.AddSegment(newSeg);
+                                currentSegment = newSeg;
+
+                                segmentIndex += size * Word.Size;
+                                overallIndex += size * Word.Size;
                             }
                             else
                             {
                                 ReportError($"Could not parse \"{dir.Value}\". Only integers are supported in RESW directive.", dir);
                                 return false;
                             }
-                            break;
-                        case AssemblerDirective.Mnemonic.END:
-                            // Don't do anything.
-                            // In pass one, Symbol this.entryPoint should have already been set.
                             break;
                         default:
                             // This indicates a bug.
@@ -603,7 +608,7 @@ namespace SICXE
             {
                 if (entryPoint.Address.HasValue)
                 {
-                    outputBinary.EntryPoint = entryPoint.Address.Value + mainSegment.BaseAddress.Value;
+                    outputBinary.EntryPoint = entryPoint.Address.Value + currentSegment.BaseAddress.Value;
                 }
                 else
                 {
@@ -612,7 +617,7 @@ namespace SICXE
             }
             else
             {
-                Console.Error.WriteLine($"Warning: No END directive. Assuming entry point is {mainSegment.BaseAddress}.");
+                Console.Error.WriteLine($"Warning: No END directive. Assuming entry point is {currentSegment.BaseAddress}.");
             }
 
             donePassTwo = true;
@@ -637,7 +642,7 @@ namespace SICXE
                 case 'X':
                     if ((payload.Length & 1) > 0)
                     {
-                        Console.Error.WriteLine("Warning: Hex literal contains uneven number of characters. The left will be padded with 0.");
+                        Console.Error.WriteLine($"Warning: Hex string in line {dir.LineNumber} contains uneven number of characters. The left will be padded with 0.");
                         payload = '0' + payload;
                     }
                     return Literal.GetBytesFromHexString(payload);
@@ -752,7 +757,6 @@ namespace SICXE
                 }
 
                 throw new ArgumentException($"Could not assemble format 3 instruction using displacement 0x{firstOperand.Value.Value.ToString("X")}.");
-
             }
 
             if (opcount == 0)

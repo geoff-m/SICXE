@@ -9,7 +9,7 @@ namespace SICXE
         public int? BaseAddress
         { get; set; }
 
-        public byte[] Data
+        public List<byte> Data
         { get; set; }
 
         public int CompareTo(Segment other)
@@ -51,11 +51,11 @@ namespace SICXE
         {
             if (BaseAddress.HasValue)
             {
-                return $"{Data.Length}bytes@{BaseAddress.Value.ToString("X")}";
+                return $"{Data.Count}bytes@{BaseAddress.Value.ToString("X")}";
             }
             else
             {
-                return $"{Data.Length}bytes@<not set>";
+                return $"{Data.Count}bytes@<not set>";
             }
         }
     }

@@ -34,13 +34,33 @@ namespace SICXE
         /// <param name="path"></param>
         public void WriteOBJ(string path)
         {
-            throw new NotSupportedException();
+            var writer = new StreamWriter(path, false);
+            var last = segments.Last();
+            foreach (var seg in Segments)
+            {
+                if (seg != last)
+                {
+                    writer.WriteLine(seg.BaseAddress);
+                    writer.WriteLine("000000");
+                    foreach (byte b in seg.Data)
+                    {
+                        writer.Write(b.ToString("x"));
+                    }
+                    writer.WriteLine();
+                }
+                writer.WriteLine("!");
+            }
+            writer.WriteLine(last.BaseAddress);
+            writer.WriteLine(EntryPoint);
+            writer.WriteLine("!");
+
+            writer.Dispose();
         }
 
 
         public override string ToString()
         {
-            return $"{segments.Sum(s => s.Data.Length)} bytes in {segments.Count} segments";
+            return $"{segments.Sum(s => s.Data.Count)} bytes in {segments.Count} segments";
         }
 
         // For debug.
@@ -49,7 +69,7 @@ namespace SICXE
         {
             if (segments.Count < 2)
                 return true;
-            var intervals = segments.Select(s => new Interval(s.BaseAddress.Value, s.BaseAddress.Value + s.Data.Length)).ToList();
+            var intervals = segments.Select(s => new Interval(s.BaseAddress.Value, s.BaseAddress.Value + s.Data.Count)).ToList();
             intervals.Sort((x, y) => x.Start.CompareTo(y.Start));
             Interval last = intervals[0];
             for (int i = 1; i < intervals.Count; ++i)
