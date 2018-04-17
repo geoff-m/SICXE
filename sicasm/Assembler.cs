@@ -632,7 +632,7 @@ namespace SICXE
                     {
                         if (lineBytes != null)
                         {
-                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{string.Join("", lineBytes.Select(b => b.ToString("X2")))}\t{line.ToString(separation)}    \t{line.Comment}";
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{string.Join("", lineBytes.Select(b => b.ToString("X2"))).PadRight(10)}\t{line.ToString(separation)}    \t{line.Comment}";
                         }
                         else
                         {
@@ -643,11 +643,11 @@ namespace SICXE
                     {
                         if (lineBytes != null)
                         {
-                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{string.Join("", lineBytes.Select(b => b.ToString("X2")))}\t{line.ToString(separation)}";
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{string.Join("", lineBytes.Select(b => b.ToString("X2"))).PadRight(10)}\t{line.ToString(separation)}";
                         }
                         else
                         {
-                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t\t{line.ToString(separation)}";
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}        \t\t{line.ToString(separation)}";
                         }
                     }
                     Console.WriteLine(printedLine);
@@ -767,15 +767,22 @@ namespace SICXE
                 int disp = firstOperand.Value.Value;
                 if (instr.Format == InstructionFormat.Format4)
                 {
-                    // Use the absolute address as the displacement, and set the E flag.
-                    disp += programBaseAddress;
+                    const int MAX_F4_DISP = 1 << 20; // untested.
+                    
                     if (immediate)
                     {
                         if (disp < 0)
                             throw new ArgumentException("Displacement cannot be negative using extended, immediate addressing!");
-                        const int MAX_F4_DISP = 1 << 20; // untested.
+                        
                         if (disp > MAX_F4_DISP)
                             throw new ArgumentException($"Displacement is too large for extended mode: maximum is {MAX_F4_DISP}.");
+
+                        // Use the immediate value as the dsipacaement (Don't offset it by the program base address).
+                    }
+                    else
+                    {
+                        // Use the absolute address as the displacement.
+                        disp += programBaseAddress;
                     }
                     // ni xbpe
                     // 21 8421
@@ -784,9 +791,24 @@ namespace SICXE
                     return binInstr;
                 }
 
-                // Try using program-counter relative addressing.
+
                 const int MIN_PC_DISP = -(1 << 11); // untested.
                 const int MAX_PC_DISP = 1 << 11;
+
+                if (immediate)
+                {
+                    if (disp >= MIN_PC_DISP && disp <= MAX_PC_DISP)
+                    {
+                        InsertDisplacement(binInstr, disp);
+                        return binInstr;
+                    }
+                    else
+                    {
+                        throw new ArgumentException($"Immediate operand cannot fit in format 3 instruction: minimum is {MIN_PC_DISP}, maximum is {MAX_PC_DISP}.");
+                    }
+                }
+
+                // Try using program-counter relative addressing.
                 disp = programCounter - disp; // disp now represents the offset between the operand's value and the program counter.
                 if (disp >= MIN_PC_DISP && disp <= MAX_PC_DISP)
                 {
