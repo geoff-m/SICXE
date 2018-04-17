@@ -80,10 +80,9 @@ namespace SICXE
                 writer.WriteLine("---------------------------");
                 writer.WriteLine("Line   Address\tSource");
                 writer.WriteLine("----   -------\t---------------------------------");
+                Console.Error.WriteLine("Line   Address\tSource");
+                Console.Error.WriteLine("----   -------\t---------------------------------");
             }
-            Console.Error.WriteLine("Line   Address\tSource");
-            Console.Error.WriteLine("----   -------\t---------------------------------");
-
 
             int bytesSoFar = 0; // The total number of bytes in the assembled program.
             int instructionBytes = 0; // The total number of instruction bytes in the program.
@@ -424,25 +423,39 @@ namespace SICXE
         }
 
         bool donePassTwo = false;
-        public bool PassTwo(string listPath = null)
+        public bool PassTwo(string lstPath = null)
         {
             if (donePassTwo)
             {
                 // This indicates a bug.
                 throw new InvalidOperationException("Pass two has already been done!");
             }
+            StreamWriter writer = null;
+            if (lstPath != null)
+            {
+                writer = new StreamWriter(lstPath, false);
+                writer.WriteLine($"Geoff's SIC/XE Assembler (built on {_BUILD_DATE.ToShortDateString()})");
+                var now = DateTime.Now;
+                writer.WriteLine($"Username: {Environment.UserName}; {now.ToShortDateString()} {now.ToLongTimeString()}");
+                writer.WriteLine("-------------------------------------------------");
+                writer.WriteLine("Assembler First Pass Report");
+                writer.WriteLine("---------------------------");
+                writer.WriteLine("Line   Address\tBinary\tSource");
+                writer.WriteLine("----   -------\t------\t---------------------------------");
+            }
+
             int currentSegmentStart = startAddress.Value;
             Segment currentSegment = new Segment
             {
                 BaseAddress = currentSegmentStart,
                 Data = new List<byte>()
             };
-            //outputBinary.AddSegment(currentSegment);
 
             int segmentIndex = 0; // Index in the code segment.
             int overallIndex = 0;
             byte[] binInstr = null;
             int? @base = null; // for base directive.
+            byte[] lineBytes = null; // For for printing to LST file.
             for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
             {
                 Line line = prog[lineIdx];
@@ -510,7 +523,7 @@ namespace SICXE
                     //Array.Copy(binInstr, 0, currentSegment.Data, segmentIndex, binInstr.Length);
                     segmentIndex += binInstr.Length;
                     overallIndex += binInstr.Length;
-                    continue; // Done processing instruction.
+                    lineBytes = binInstr;
                 }
 
                 // If we reached here, the line is not an instruction.
@@ -523,10 +536,12 @@ namespace SICXE
                     {
                         case AssemblerDirective.Mnemonic.START:
                             // Don't do anything.
+                            lineBytes = null;
                             break;
                         case AssemblerDirective.Mnemonic.END:
                             // Don't do anything.
                             // In pass one, Symbol this.entryPoint should have already been set.
+                            lineBytes = null;
                             break;
                         case AssemblerDirective.Mnemonic.BASE:
                             Symbol baseSymbol;
@@ -539,6 +554,7 @@ namespace SICXE
                                 ReportError($"Undefined symbol \"{baseSymbol.Name}\".", dir);
                                 return false;
                             }
+                            lineBytes = null;
                             break;
                         case AssemblerDirective.Mnemonic.BYTE:
                             try
@@ -556,6 +572,7 @@ namespace SICXE
                             //Array.Copy(buf, 0, currentSegment.Data, segmentIndex, buf.Length);
                             segmentIndex += buf.Length;
                             overallIndex += buf.Length;
+                            lineBytes = buf;
                             break;
                         case AssemblerDirective.Mnemonic.WORD:
                             Word parsed;
@@ -570,6 +587,7 @@ namespace SICXE
                             //Array.Copy(buf, 0, currentSegment.Data, segmentIndex, buf.Length);
                             segmentIndex += buf.Length;
                             overallIndex += buf.Length;
+                            lineBytes = buf.Reverse().ToArray();
                             break;
                         case AssemblerDirective.Mnemonic.RESW:
                             int size;
@@ -591,6 +609,7 @@ namespace SICXE
                                 ReportError($"Could not parse \"{dir.Value}\". Only integers are supported in RESW directive.", dir);
                                 return false;
                             }
+                            lineBytes = null;
                             break;
                         default:
                             // This indicates a bug.
@@ -601,6 +620,38 @@ namespace SICXE
                         break;
 #endif
                     }
+                }
+                if (writer != null)
+                {
+                    int separation = prog.LongestLabel;
+                    if (separation < 1)
+                        separation = 1;
+                    string address = line.Address.HasValue ? (startAddress.Value + line.Address.Value).ToString("X6") : "??????";
+                    string printedLine;
+                    if (line.Comment != null && line.Comment.Length > 0)
+                    {
+                        if (lineBytes != null)
+                        {
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{string.Join("", lineBytes.Select(b => b.ToString("X2")))}\t{line.ToString(separation)}    \t{line.Comment}";
+                        }
+                        else
+                        {
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t\t{line.ToString(separation)}    \t{line.Comment}";
+                        }
+                    }
+                    else
+                    {
+                        if (lineBytes != null)
+                        {
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{string.Join("", lineBytes.Select(b => b.ToString("X2")))}\t{line.ToString(separation)}";
+                        }
+                        else
+                        {
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t\t{line.ToString(separation)}";
+                        }
+                    }
+                    Console.WriteLine(printedLine);
+                    writer.WriteLine(printedLine);
                 }
             }
 
@@ -620,6 +671,11 @@ namespace SICXE
                 Console.Error.WriteLine($"Warning: No END directive. Assuming entry point is {currentSegment.BaseAddress}.");
             }
 
+            if (writer != null)
+            {
+                writer.Dispose();
+            }
+
             donePassTwo = true;
             return true;
         } // PassTwo().
@@ -637,7 +693,7 @@ namespace SICXE
             {
                 case 'c':
                 case 'C':
-                    return System.Text.Encoding.ASCII.GetBytes(dir.Value);
+                    return System.Text.Encoding.ASCII.GetBytes(payload);
                 case 'x':
                 case 'X':
                     if ((payload.Length & 1) > 0)
@@ -687,7 +743,7 @@ namespace SICXE
                 bool indirect = mode.HasFlag(AddressingMode.Indirect);
                 bool immediate = mode.HasFlag(AddressingMode.Immediate);
                 bool indexed = mode.HasFlag(AddressingMode.Indexed);
-                if (!(indexed || immediate))
+                if (!(indirect || immediate))
                 {
                     binInstr[0] |= 3; // Set N,I flags.
                 }

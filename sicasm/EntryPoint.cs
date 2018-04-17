@@ -22,14 +22,14 @@ namespace SICXE
                 {
                     var assembler = new Assembler(myProgram);
                     var outpath = path + ".lst";
-                    if (assembler.PassOne(outpath))
+                    if (assembler.PassOne())
                     {
                         Console.Error.WriteLine($"\nAssembly pass one succeeded. Listing file written to \"{outpath}\"");
 
                         Console.WriteLine();
                         assembler.PrintSymbolTable();
 
-                        if (assembler.PassTwo())
+                        if (assembler.PassTwo(outpath))
                         {
                             Console.Error.WriteLine("\nAssembly pass two succeeded.");
                         }

@@ -311,6 +311,7 @@ namespace SICXE
 
             Debug.Assert(ret.Format != InstructionFormat.NotSet, "Instruction's format should be set by this point.");
 
+            bool isIndexed = false;
             if (tokens.Length >= 2)
             {
                 var args = tokens[1];
@@ -329,6 +330,7 @@ namespace SICXE
                             Array.Copy(tokens, 2, splitOnComma, 3, tokens.Length - 2);
                             tokens = splitOnComma;
                         }
+                        isIndexed = false;
                     }
                     else
                     {
@@ -338,6 +340,7 @@ namespace SICXE
                             result = null;
                             return false;
                         }
+                        isIndexed = true;
                     }
                 }
             }
@@ -384,6 +387,8 @@ namespace SICXE
                             // todo: check that token is valid for a symbol name and return false if it isn't.
                             operand.SymbolName = token;
                         }
+                        if (isIndexed)
+                            operand.AddressingMode |= AddressingMode.Indexed;
                         break;
                     case OperandType.Register:
                         Register reg;
