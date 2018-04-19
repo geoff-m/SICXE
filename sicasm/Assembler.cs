@@ -823,8 +823,8 @@ namespace SICXE
         private byte[] AssembleFormats34(Instruction instr, int programBaseAddress, int programCounter, int? baseRegister)
         {
 #if DEBUG
-            if (instr.Operation == Instruction.Mnemonic.STA)
-                Debugger.Break();
+            //if (instr.Operation == Instruction.Mnemonic.STA)
+                //Debugger.Break();
 #endif
 
             int oplen = (int)instr.Format;
@@ -963,16 +963,16 @@ namespace SICXE
             switch (len)
             {
                 case 3:
-                    dispBytes = EncodeTwosComplement(displacement, 12);
-                    Debug.Assert(dispBytes.Length == 2, "encodetwoscomplement gave us wrong number of bytes!");
+                    dispBytes = EncodeNumber(displacement, 12);
+                    Debug.Assert(dispBytes.Length == 2, "EncodeNumber gave us wrong number of bytes!");
                     Debug.Assert((instruction[1] & 0x3) == 0, "disp bits are already set in instruction!");
                     Debug.Assert(instruction[2] == 0, "disp bits are already set in instruction!");
                     instruction[2] = dispBytes[0];
                     instruction[1] |= dispBytes[1];
                     break;
                 case 4:
-                    dispBytes = EncodeTwosComplement(displacement, 20);
-                    Debug.Assert(dispBytes.Length == 3, "encodetwoscomplement gave us wrong number of bytes!");
+                    dispBytes = EncodeNumber(displacement, 20);
+                    Debug.Assert(dispBytes.Length == 3, "EncodeNumber gave us wrong number of bytes!");
                     Debug.Assert((instruction[1] & 0x3) == 0, "disp bits are already set in instruction!");
                     Debug.Assert(instruction[2] == 0, "disp bits are already set in instruction!");
                     Debug.Assert(instruction[3] == 0, "disp bits are already set in instruction!");
@@ -998,8 +998,7 @@ namespace SICXE
             return symbol;
         }
 
-        // todo: this doesn't work with n= -9(0xfffffff7), bits= 12(0xc)
-        private static byte[] EncodeTwosComplement(int n, int bits) // untested.
+        private static byte[] EncodeNumber(int n, int bits)
         {
             int highMask = checked(~((1 << bits) - 1));
             if ((highMask & bits) > 0)
@@ -1007,13 +1006,7 @@ namespace SICXE
                 // Higher bits are set in 'n' than 2^bits.
                 throw new OverflowException();
             }
-
-            if (n < 0)
-            {
-                n = ~n;
-                n = checked(n + 1);
-                n &= ~highMask;
-            }
+            n &= ~highMask;
 
             int retlen = (int)Math.Ceiling(bits / 8d);
             var ret = new byte[retlen];
