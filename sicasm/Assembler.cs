@@ -28,17 +28,19 @@ namespace SICXE
             }
             Console.Error.WriteLine("Pass two succeeded.");
 
-            result = inst.outputBinary;
+            result = inst.Output;
             return true;
         }
 
-
         Program prog;
-        Binary outputBinary;
+
+        public Binary Output
+        { get; private set; }
+
         public Assembler(Program p)
         {
             prog = p;
-            outputBinary = new Binary();
+            Output = new Binary();
         }
 
         /// <summary>
@@ -53,7 +55,106 @@ namespace SICXE
         int? startAddress;
         int? firstInstructionAddress; // The address of the first instruction in the program. Used to set the base address of the code segment.
 
+        #region Symbols
         Dictionary<string, Symbol> symbols;
+
+        public void PrintSymbolTable()
+        {
+            if (symbols == null)
+                return;
+
+            Console.WriteLine($"The symbol table contains {symbols.Count} entries.");
+
+            int start;
+            if (startAddress.HasValue)
+            {
+                start = startAddress.Value;
+                Console.WriteLine("Name\t\tAddress");
+                Console.WriteLine("----\t\t-------");
+            }
+            else
+            {
+                start = 0;
+                Console.WriteLine("Name\t\tAddress (Relative)");
+                Console.WriteLine("----\t\t------------------");
+            }
+
+            foreach (var sym in symbols.Values)
+            {
+                if (sym.Address.HasValue)
+                {
+                    Console.WriteLine($"{sym.Name}\t\t{(start + sym.Address.Value).ToString("X6")}");
+                }
+                else
+                {
+                    Console.WriteLine($"{sym.Name}\t\t<not set>");
+                }
+
+            }
+            Console.WriteLine();
+        }
+
+        /// <summary>
+        /// Creates the symbol with the specified name if it does not exist.
+        /// </summary>
+        /// <param name="name"></param>
+        private void TouchSymbol(string name)
+        {
+            if (!symbols.ContainsKey(name))
+            {
+                if (Literal.StringIsLiteralName(name))
+                {
+                    symbols.Add(name, new Literal(name));
+                }
+                else
+                {
+                    symbols.Add(name, new Symbol(name));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Creates a symbol, ensuring it does not already exist.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns>True if the symbol was created. False if it already exists.</returns>
+        private bool CreateSymbol(string name)
+        {
+            if (symbols.ContainsKey(name))
+            {
+                // The symbol already exists. Let caller display error message.
+                return false;
+            }
+            var newSymbol = new Symbol(name);
+            symbols[name] = newSymbol;
+            return true;
+        }
+
+        /// <summary>
+        /// Sets a symbol's value, ensuring it does not already have one. If the symbol with the specified name does not exist, it will be created.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="address"></param>
+        /// <returns>True on success. False if the symbol already has a value assigned.</returns>
+        private bool SetSymbolAddress(string name, int address)
+        {
+            Symbol existing;
+            if (symbols.TryGetValue(name, out existing))
+            {
+                if (existing.Address.HasValue)
+                {
+                    // The symbol already has value assigned. Let caller display error message.
+                    return false;
+                }
+                existing.Address = address;
+                return true;
+            }
+            // The symbol does not exist. We create it and assign it a value at the same time.
+            symbols.Add(name, new Symbol(name) { Address = address });
+            return true;
+        }
+        #endregion
+
         bool donePassOne = false;
         /// <summary>
         /// Takes account of all symbols declared or referenced, and computes the total length of the assembled binary.
@@ -455,7 +556,7 @@ namespace SICXE
             int overallIndex = 0;
             byte[] binInstr = null;
             int? @base = null; // for base directive.
-            byte[] lineBytes = null; // For for printing to LST file.
+            byte[] lineBytesToDisplay = null; // For for printing to LST file/console.
             for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
             {
                 Line line = prog[lineIdx];
@@ -464,8 +565,8 @@ namespace SICXE
                 {
                     Debug.Assert(instr.Address == overallIndex);
 
-                    // Set each operand symbol's address using the symbol table.
-                    for (int operandIdx = 0; operandIdx < instr.Operands.Count; ++operandIdx)
+                        // Set each operand symbol's address using the symbol table.
+                        for (int operandIdx = 0; operandIdx < instr.Operands.Count; ++operandIdx)
                     {
                         Operand operand = instr.Operands[operandIdx];
                         if (!operand.Value.HasValue)
@@ -520,10 +621,9 @@ namespace SICXE
 #endif
                     }
                     currentSegment.Data.AddRange(binInstr);
-                    //Array.Copy(binInstr, 0, currentSegment.Data, segmentIndex, binInstr.Length);
                     segmentIndex += binInstr.Length;
                     overallIndex += binInstr.Length;
-                    lineBytes = binInstr;
+                    lineBytesToDisplay = binInstr;
                 }
 
                 // If we reached here, the line is not an instruction.
@@ -536,12 +636,12 @@ namespace SICXE
                     {
                         case AssemblerDirective.Mnemonic.START:
                             // Don't do anything.
-                            lineBytes = null;
+                            lineBytesToDisplay = null;
                             break;
                         case AssemblerDirective.Mnemonic.END:
                             // Don't do anything.
                             // In pass one, Symbol this.entryPoint should have already been set.
-                            lineBytes = null;
+                            lineBytesToDisplay = null;
                             break;
                         case AssemblerDirective.Mnemonic.BASE:
                             Symbol baseSymbol;
@@ -554,7 +654,7 @@ namespace SICXE
                                 ReportError($"Undefined symbol \"{baseSymbol.Name}\".", dir);
                                 return false;
                             }
-                            lineBytes = null;
+                            lineBytesToDisplay = null;
                             break;
                         case AssemblerDirective.Mnemonic.BYTE:
                             try
@@ -569,10 +669,9 @@ namespace SICXE
                                 return false;
                             }
                             currentSegment.Data.AddRange(buf);
-                            //Array.Copy(buf, 0, currentSegment.Data, segmentIndex, buf.Length);
                             segmentIndex += buf.Length;
                             overallIndex += buf.Length;
-                            lineBytes = buf;
+                            lineBytesToDisplay = buf;
                             break;
                         case AssemblerDirective.Mnemonic.WORD:
                             Word parsed;
@@ -584,21 +683,20 @@ namespace SICXE
                             buf = parsed.ToArray();
                             Debug.Assert(buf.Length == Word.Size);
                             currentSegment.Data.AddRange(buf);
-                            //Array.Copy(buf, 0, currentSegment.Data, segmentIndex, buf.Length);
                             segmentIndex += buf.Length;
                             overallIndex += buf.Length;
-                            lineBytes = buf.Reverse().ToArray();
+                            lineBytesToDisplay = buf.Reverse().ToArray();
                             break;
                         case AssemblerDirective.Mnemonic.RESW:
                             int size;
                             if (int.TryParse(dir.Value, out size))
                             {
-                                outputBinary.AddSegment(currentSegment); // Push current segment.
+                                Output.AddSegment(currentSegment); // Push current segment.
 
                                 var newSeg = new Segment(); // Begin new segment.
                                 newSeg.BaseAddress = startAddress.Value + segmentIndex;
                                 newSeg.Data = new List<byte>();
-                                outputBinary.AddSegment(newSeg);
+                                Output.AddSegment(newSeg);
                                 currentSegment = newSeg;
 
                                 segmentIndex += size * Word.Size;
@@ -609,7 +707,7 @@ namespace SICXE
                                 ReportError($"Could not parse \"{dir.Value}\". Only integers are supported in RESW directive.", dir);
                                 return false;
                             }
-                            lineBytes = null;
+                            lineBytesToDisplay = null;
                             break;
                         default:
                             // This indicates a bug.
@@ -630,20 +728,20 @@ namespace SICXE
                     string printedLine;
                     if (line.Comment != null && line.Comment.Length > 0)
                     {
-                        if (lineBytes != null)
+                        if (lineBytesToDisplay != null)
                         {
-                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{string.Join("", lineBytes.Select(b => b.ToString("X2"))).PadRight(10)}\t{line.ToString(separation)}    \t{line.Comment}";
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{string.Join("", lineBytesToDisplay.Select(b => b.ToString("X2"))).PadRight(10)}\t{line.ToString(separation)}    \t{line.Comment}";
                         }
                         else
                         {
-                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t\t{line.ToString(separation)}    \t{line.Comment}";
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}        \t\t{line.ToString(separation)}    \t{line.Comment}";
                         }
                     }
                     else
                     {
-                        if (lineBytes != null)
+                        if (lineBytesToDisplay != null)
                         {
-                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{string.Join("", lineBytes.Select(b => b.ToString("X2"))).PadRight(10)}\t{line.ToString(separation)}";
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{string.Join("", lineBytesToDisplay.Select(b => b.ToString("X2"))).PadRight(10)}\t{line.ToString(separation)}";
                         }
                         else
                         {
@@ -659,7 +757,7 @@ namespace SICXE
             {
                 if (entryPoint.Address.HasValue)
                 {
-                    outputBinary.EntryPoint = entryPoint.Address.Value + currentSegment.BaseAddress.Value;
+                    Output.EntryPoint = entryPoint.Address.Value + currentSegment.BaseAddress.Value;
                 }
                 else
                 {
@@ -724,6 +822,11 @@ namespace SICXE
         // Called during pass two.
         private byte[] AssembleFormats34(Instruction instr, int programBaseAddress, int programCounter, int? baseRegister)
         {
+#if DEBUG
+            if (instr.Operation == Instruction.Mnemonic.STA)
+                Debugger.Break();
+#endif
+
             int oplen = (int)instr.Format;
 
             if (oplen != 3 && oplen != 4)
@@ -809,7 +912,8 @@ namespace SICXE
                 }
 
                 // Try using program-counter relative addressing.
-                disp = programCounter - disp; // disp now represents the offset between the operand's value and the program counter.
+                //disp = programCounter - disp; // disp now represents the offset between the operand's value and the program counter.
+                disp -= programCounter;
                 if (disp >= MIN_PC_DISP && disp <= MAX_PC_DISP)
                 {
                     // PC-relative addressing is valid.
@@ -851,6 +955,7 @@ namespace SICXE
             throw new ArgumentException($"Too many operands for format {oplen} instruction {instr.ToString()}.");
         }
 
+        // Called during pass two.
         private static void InsertDisplacement(byte[] instruction, int displacement) // untested
         {
             int len = instruction.Length;
@@ -893,102 +998,7 @@ namespace SICXE
             return symbol;
         }
 
-        public void PrintSymbolTable()
-        {
-            if (symbols == null)
-                return;
-
-            Console.WriteLine($"The symbol table contains {symbols.Count} entries.");
-
-            int start;
-            if (startAddress.HasValue)
-            {
-                start = startAddress.Value;
-                Console.WriteLine("Name\t\tAddress");
-                Console.WriteLine("----\t\t-------");
-            }
-            else
-            {
-                start = 0;
-                Console.WriteLine("Name\t\tAddress (Relative)");
-                Console.WriteLine("----\t\t------------------");
-            }
-
-            foreach (var sym in symbols.Values)
-            {
-                if (sym.Address.HasValue)
-                {
-                    Console.WriteLine($"{sym.Name}\t\t{(start + sym.Address.Value).ToString("X6")}");
-                }
-                else
-                {
-                    Console.WriteLine($"{sym.Name}\t\t<not set>");
-                }
-
-            }
-            Console.WriteLine();
-        }
-
-        /// <summary>
-        /// Creates the symbol with the specified name if it does not exist.
-        /// </summary>
-        /// <param name="name"></param>
-        private void TouchSymbol(string name)
-        {
-            if (!symbols.ContainsKey(name))
-            {
-                if (Literal.StringIsLiteralName(name))
-                {
-                    symbols.Add(name, new Literal(name));
-                }
-                else
-                {
-                    symbols.Add(name, new Symbol(name));
-                }
-            }
-        }
-
-        /// <summary>
-        /// Creates a symbol, ensuring it does not already exist.
-        /// </summary>
-        /// <param name="name"></param>
-        /// <returns>True if the symbol was created. False if it already exists.</returns>
-        private bool CreateSymbol(string name)
-        {
-            if (symbols.ContainsKey(name))
-            {
-                // The symbol already exists. Let caller display error message.
-                return false;
-            }
-            var newSymbol = new Symbol(name);
-            symbols[name] = newSymbol;
-            return true;
-        }
-
-        /// <summary>
-        /// Sets a symbol's value, ensuring it does not already have one. If the symbol with the specified name does not exist, it will be created.
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="address"></param>
-        /// <returns>True on success. False if the symbol already has a value assigned.</returns>
-        private bool SetSymbolAddress(string name, int address)
-        {
-            Symbol existing;
-            if (symbols.TryGetValue(name, out existing))
-            {
-                if (existing.Address.HasValue)
-                {
-                    // The symbol already has value assigned. Let caller display error message.
-                    return false;
-                }
-                existing.Address = address;
-                return true;
-            }
-            // The symbol does not exist. We create it and assign it a value at the same time.
-            symbols.Add(name, new Symbol(name) { Address = address });
-            return true;
-        }
-
+        // todo: this doesn't work with n= -9(0xfffffff7), bits= 12(0xc)
         private static byte[] EncodeTwosComplement(int n, int bits) // untested.
         {
             int highMask = checked(~((1 << bits) - 1));

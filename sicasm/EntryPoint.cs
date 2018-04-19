@@ -9,6 +9,11 @@ namespace SICXE
     {
         static void Main(string[] args)
         {
+#if DEBUG
+            Console.Error.WriteLine("####################  DEBUG BUILD  ####################");
+            Console.Error.WriteLine("####################  DEBUG BUILD  ####################");
+            Console.Error.WriteLine("####################  DEBUG BUILD  ####################");
+#endif
             if (args.Length != 1)
             {
                 Console.Error.WriteLine("Expected 1 argument: Path to assembly file");
@@ -21,17 +26,19 @@ namespace SICXE
                 if (Program.TryParse(path, out myProgram))
                 {
                     var assembler = new Assembler(myProgram);
-                    var outpath = path + ".lst";
+                    var lstPath = path + ".lst";
+                    var objPath = path + ".obj";
                     if (assembler.PassOne())
                     {
-                        Console.Error.WriteLine($"\nAssembly pass one succeeded. Listing file written to \"{outpath}\"");
+                        Console.Error.WriteLine($"\nAssembly pass one succeeded. Listing file written to \"{lstPath}\"");
 
                         Console.WriteLine();
-                        assembler.PrintSymbolTable();
+                        //assembler.PrintSymbolTable();
 
-                        if (assembler.PassTwo(outpath))
+                        if (assembler.PassTwo(lstPath))
                         {
                             Console.Error.WriteLine("\nAssembly pass two succeeded.");
+                            assembler.Output.WriteOBJ(objPath);
                         }
                         else
                         {

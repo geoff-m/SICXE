@@ -40,19 +40,29 @@ namespace SICXE
             {
                 if (seg != last)
                 {
-                    writer.WriteLine(seg.BaseAddress);
+                    Debug.WriteLine($"\nbegin non-final segment {seg.ToString()}");
+                    Debug.WriteLine(seg.BaseAddress.Value.ToString("X6"));
+                    Debug.WriteLine("000000");
+                    writer.WriteLine(seg.BaseAddress.Value.ToString("X6"));
                     writer.WriteLine("000000");
                     foreach (byte b in seg.Data)
                     {
-                        writer.Write(b.ToString("x"));
+                        Debug.Write(b.ToString("X2"));
+                        writer.Write(b.ToString("X2"));
                     }
-                    writer.WriteLine();
+                    writer.WriteLine(Environment.NewLine + "!");
                 }
-                writer.WriteLine("!");
             }
-            writer.WriteLine(last.BaseAddress);
-            writer.WriteLine(EntryPoint);
-            writer.WriteLine("!");
+            Debug.WriteLine($"\nbegin final segment {last.ToString()}");
+            Debug.WriteLine(last.BaseAddress.Value.ToString("X6"));
+            writer.WriteLine(last.BaseAddress.Value.ToString("X6"));
+            writer.WriteLine(EntryPoint.ToString("X6"));
+            foreach (byte b in last.Data)
+            {
+                Debug.Write(b.ToString("X2"));
+                writer.Write(b.ToString("X2"));
+            }
+            writer.WriteLine(Environment.NewLine + "!");
 
             writer.Dispose();
         }

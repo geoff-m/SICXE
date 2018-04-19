@@ -127,7 +127,7 @@ namespace SICXE
                         if (line.Label != null && prog.LongestLabel < line.Label.Length)
                             prog.LongestLabel = line.Label.Length;
 
-                        Debug.WriteLine(line.ToString());
+                        Debug.WriteLine($"Line {line.LineNumber}: {line.ToString()}");
                     }
                     else
                     {

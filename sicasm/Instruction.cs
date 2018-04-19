@@ -75,10 +75,12 @@ namespace SICXE
             bool hasValue = Value != null;
             if (hasSymbol)
             {
+#if DEBUG
                 if (hasValue)
                 {
-                    return $"{prefix}{SymbolName}(={Value})";
+                    return $"{prefix}{SymbolName}(={Value.Value.ToString("X")})";
                 }
+#endif
                 return $"{prefix}{SymbolName}";
             }
             if (hasValue)
