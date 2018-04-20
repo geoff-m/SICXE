@@ -28,7 +28,7 @@ namespace SICXE
         public override string ToString()
         {
             if (Address.HasValue)
-                return $"{Name}@{Address}";
+                return $"{Name}@{Address.Value.ToString("X")}";
             else
                 return $"{Name}@<not set>";
         }

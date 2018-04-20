@@ -169,6 +169,7 @@ namespace SICXE
                 throw new InvalidOperationException("Pass one has already been done!");
             }
             Console.Error.WriteLine("\nBeginning assembly pass one...\n");
+            PreprocessLiterals();
             StreamWriter writer = null;
             if (lstPath != null)
             {
@@ -187,11 +188,12 @@ namespace SICXE
 
             int bytesSoFar = 0; // The total number of bytes in the assembled program.
             int instructionBytes = 0; // The total number of instruction bytes in the program.
-
             symbols = new Dictionary<string, Symbol>();
             for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
             {
                 Line line = prog[lineIdx];
+                if (line.SkipPassOne)
+                    continue;
                 string label;
                 AssemblerDirective dir = line as AssemblerDirective;
                 if (dir != null)
@@ -205,11 +207,11 @@ namespace SICXE
                                 Console.Error.WriteLine($"Error: Line {line.LineNumber}:\tIncomplete BYTE declaration is not allowed: {line.ToString()}");
                                 return false;
                             }
-                            if (hitEnd)
-                            {
-                                Console.Error.WriteLine($"Error: Line {line.LineNumber}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
-                                return false;
-                            }
+                            //if (hitEnd)
+                            //{
+                            //    Console.Error.WriteLine($"Error: Line {line.LineNumber}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                            //    return false;
+                            //}
 
                             var byteRegex = new Regex("([xc])'(.+)'", RegexOptions.IgnoreCase);
                             var match = byteRegex.Match(dir.Value);
@@ -256,11 +258,11 @@ namespace SICXE
                                 Console.Error.WriteLine($"Error: Line {line.LineNumber}:\tIncomplete WORD declaration is not allowed: {line.ToString()}");
                                 return false;
                             }
-                            if (hitEnd)
-                            {
-                                Console.Error.WriteLine($"Error: Line {line.LineNumber}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
-                                return false;
-                            }
+                            //if (hitEnd)
+                            //{
+                            //    Console.Error.WriteLine($"Error: Line {line.LineNumber}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                            //    return false;
+                            //}
 
                             if (int.TryParse(dir.Value, out val))
                             {
@@ -292,11 +294,11 @@ namespace SICXE
                                 Console.Error.WriteLine($"Error: Line {line.LineNumber}:\tIncomplete RESW or RESB declaration is not allowed: {line.ToString()}");
                                 return false;
                             }
-                            if (hitEnd)
-                            {
-                                Console.Error.WriteLine($"Error: Line {line.LineNumber}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
-                                return false;
-                            }
+                            //if (hitEnd)
+                            //{
+                            //    Console.Error.WriteLine($"Error: Line {line.LineNumber}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                            //    return false;
+                            //}
 
                             if (int.TryParse(dir.Value, out val))
                             {
@@ -398,15 +400,9 @@ namespace SICXE
                             line.Address = bytesSoFar;
                             break;
                         case AssemblerDirective.Mnemonic.LTORG:
-                            if (hitEnd)
-                            {
-                                Console.Error.WriteLine($"Error: Line {line.LineNumber}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
-                                return false;
-                            }
-
                             line.Address = bytesSoFar;
-
-                            // Calculate number of bytes that should go here and advance bytesSoFar by that amount
+                            var ltorg = (LTORG)line;
+                            // Calculate number of bytes that will go here and advance bytesSoFar by that amount.
                             int literalBytesSoFar = 0;
                             foreach (var sym in symbols)
                             {
@@ -416,17 +412,18 @@ namespace SICXE
                                     // todo: check LTORG operates on only the literals that haven't already been assembled.
                                     lit.Address = bytesSoFar + literalBytesSoFar;
                                     literalBytesSoFar += lit.Data.Length;
+                                    ltorg.Literals.Add(lit);
                                 }
                             }
                             Console.Error.WriteLine($"Info: Line {line.LineNumber}:\t{literalBytesSoFar} bytes of literals pertain to LTORG at 0x{line.Address.Value.ToString("X")}.");
                             bytesSoFar += literalBytesSoFar;
                             break;
                         case AssemblerDirective.Mnemonic.BASE:
-                            if (hitEnd)
-                            {
-                                Console.Error.WriteLine($"Error: Line {line.LineNumber}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
-                                return false;
-                            }
+                            //if (hitEnd)
+                            //{
+                            //    Console.Error.WriteLine($"Error: Line {line.LineNumber}:\tAssembler directive \"{dir.ToString()}\" cannot appear after END.");
+                            //    return false;
+                            //}
 
                             line.Address = bytesSoFar;
                             label = line.Label;
@@ -450,7 +447,7 @@ namespace SICXE
                         return false;
                     }
                 }
-                else // The line must be an instruction.
+                else // The line was not a directive, so it must be an instruction.
                 {
                     if (!startAddress.HasValue)
                     {
@@ -511,7 +508,7 @@ namespace SICXE
                     writer.WriteLine(printedLine);
 
                 }
-            }
+            } // For each line.
             totalBytes = bytesSoFar;
 
             if (writer != null)
@@ -521,6 +518,64 @@ namespace SICXE
 
             donePassOne = true;
             return true;
+        }
+
+        private void PreprocessLiterals()
+        {
+            var newLiterals = new List<Literal>();
+            for (int i = 0; i < prog.Count; ++i)
+            {
+                var line = prog[i];
+                var instr = line as Instruction;
+                if (instr != null)
+                {
+                    foreach (var operand in instr.Operands)
+                    {
+                        var symName = operand.SymbolName;
+                        if (symName != null && Literal.StringIsLiteralName(symName))
+                        {
+                            newLiterals.Add(new Literal(symName));
+                        }
+                    }
+                }
+                else
+                {
+                    var dir = line as AssemblerDirective;
+                    if (dir == null)
+                    {
+#if DEBUG
+                        throw new InvalidOperationException("Line is neither instruction nor directive!?");
+#else
+                        continue; // Ignore this line.
+#endif
+                    }
+                    if (dir.Directive == AssemblerDirective.Mnemonic.LTORG)
+                    {
+                        foreach (var lit in newLiterals)
+                        {
+                            var newDir = new AssemblerDirective(AssemblerDirective.Mnemonic.BYTE);
+                            newDir.Comment = "Generated by assembler";
+                            newDir.Label = lit.Name;
+                            newDir.Value = lit.Name.Substring(1); // Trim leading '=' to get BYTE argument.
+                            newDir.SkipPassOne = true; // Tell pass one to ignore this.
+                            Debug.WriteLine($"LTORG: Adding new line {newDir.ToString()}");
+                            prog.Insert(i + 1, newDir);
+                        }
+                        newLiterals.Clear();
+                    }
+                }
+            }
+            // Take care of any remaining literals (implicit final LTORG).
+            foreach (var lit in newLiterals)
+            {
+                var newDir = new AssemblerDirective(AssemblerDirective.Mnemonic.BYTE);
+                newDir.Comment = "Generated by assembler";
+                newDir.Label = lit.Name;
+                newDir.Value = lit.Name.Substring(1); // Trim leading '=' to get BYTE argument.
+                newDir.SkipPassOne = true; // Tell pass one to ignore this.
+                prog.Insert(prog.Count - 1, newDir);
+            }
+
         }
 
         bool donePassTwo = false;
@@ -551,6 +606,7 @@ namespace SICXE
                 BaseAddress = currentSegmentStart,
                 Data = new List<byte>()
             };
+            Output.AddSegment(currentSegment);
 
             int segmentIndex = 0; // Index in the code segment.
             int overallIndex = 0;
@@ -565,8 +621,8 @@ namespace SICXE
                 {
                     Debug.Assert(instr.Address == overallIndex);
 
-                        // Set each operand symbol's address using the symbol table.
-                        for (int operandIdx = 0; operandIdx < instr.Operands.Count; ++operandIdx)
+                    // Set each operand symbol's address using the symbol table.
+                    for (int operandIdx = 0; operandIdx < instr.Operands.Count; ++operandIdx)
                     {
                         Operand operand = instr.Operands[operandIdx];
                         if (!operand.Value.HasValue)
@@ -687,7 +743,13 @@ namespace SICXE
                             overallIndex += buf.Length;
                             lineBytesToDisplay = buf.Reverse().ToArray();
                             break;
+                        case AssemblerDirective.Mnemonic.RESB:
                         case AssemblerDirective.Mnemonic.RESW:
+                            int UNIT;
+                            if (dir.Directive == AssemblerDirective.Mnemonic.RESW)
+                                UNIT = Word.Size; // RESW 5 means reserve 15 bytes.
+                            else
+                                UNIT = 1; // RESB 5 means reserve 5 bytes.
                             int size;
                             if (int.TryParse(dir.Value, out size))
                             {
@@ -698,16 +760,29 @@ namespace SICXE
                                 newSeg.Data = new List<byte>();
                                 Output.AddSegment(newSeg);
                                 currentSegment = newSeg;
-
-                                segmentIndex += size * Word.Size;
-                                overallIndex += size * Word.Size;
+                                
+                                segmentIndex += size * UNIT;
+                                overallIndex += size * UNIT;
                             }
                             else
                             {
-                                ReportError($"Could not parse \"{dir.Value}\". Only integers are supported in RESW directive.", dir);
+                                ReportError($"Could not parse \"{dir.Value}\". Only integers are supported in {dir.Directive.ToString()} directive.", dir);
                                 return false;
                             }
                             lineBytesToDisplay = null;
+                            break;
+                        case AssemblerDirective.Mnemonic.LTORG:
+                            continue;
+                            var ltorg = (LTORG)dir;
+                            int len = 0;
+                            foreach (var lit in ltorg.Literals)
+                            {
+                                var litData = lit.Data;
+                                len += litData.Length;
+                                currentSegment.Data.AddRange(lit.Data);
+                            }
+                            segmentIndex += len;
+                            overallIndex += len;
                             break;
                         default:
                             // This indicates a bug.
@@ -824,7 +899,7 @@ namespace SICXE
         {
 #if DEBUG
             //if (instr.Operation == Instruction.Mnemonic.STA)
-                //Debugger.Break();
+            //Debugger.Break();
 #endif
 
             int oplen = (int)instr.Format;
@@ -871,12 +946,12 @@ namespace SICXE
                 if (instr.Format == InstructionFormat.Format4)
                 {
                     const int MAX_F4_DISP = 1 << 20; // untested.
-                    
+
                     if (immediate)
                     {
                         if (disp < 0)
                             throw new ArgumentException("Displacement cannot be negative using extended, immediate addressing!");
-                        
+
                         if (disp > MAX_F4_DISP)
                             throw new ArgumentException($"Displacement is too large for extended mode: maximum is {MAX_F4_DISP}.");
 

@@ -20,6 +20,11 @@ namespace SICXE
 
         List<Line> prog;
 
+        private void UpdateLongestLabel()
+        {
+            LongestLabel = prog.Max(line => line.Label == null ? 0 : line.Label.Length);
+        }
+
         #region List Implementation
 
         public int Count => ((IList<Line>)prog).Count;
@@ -29,7 +34,9 @@ namespace SICXE
         public Line this[int index]
         {
             get { return ((IList<Line>)prog)[index]; }
-            set { ((IList<Line>)prog)[index] = value; }
+            set {
+                ((IList<Line>)prog)[index] = value;
+                UpdateLongestLabel(); }
         }
 
         public int IndexOf(Line item)
@@ -40,21 +47,25 @@ namespace SICXE
         public void Insert(int index, Line item)
         {
             ((IList<Line>)prog).Insert(index, item);
+            UpdateLongestLabel();
         }
 
         public void RemoveAt(int index)
         {
             ((IList<Line>)prog).RemoveAt(index);
+            UpdateLongestLabel();
         }
 
         public void Add(Line item)
         {
             ((IList<Line>)prog).Add(item);
+            UpdateLongestLabel();
         }
 
         public void Clear()
         {
             ((IList<Line>)prog).Clear();
+            UpdateLongestLabel();
         }
 
         public bool Contains(Line item)
@@ -69,7 +80,9 @@ namespace SICXE
 
         public bool Remove(Line item)
         {
-            return ((IList<Line>)prog).Remove(item);
+            bool ret = ((IList<Line>)prog).Remove(item);
+            UpdateLongestLabel();
+            return ret;
         }
 
         public IEnumerator<Line> GetEnumerator()

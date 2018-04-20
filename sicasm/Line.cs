@@ -27,6 +27,11 @@ namespace SICXE
         public int LineNumber
         { get; set; }
 
+        /// <summary>
+        /// If this is set, this line should be ignored by pass one.
+        /// </summary>
+        public bool SkipPassOne
+        { get; set; }
 
         /// <summary>
         /// Parses a line as either a Directive or an Instruction.

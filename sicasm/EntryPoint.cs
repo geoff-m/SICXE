@@ -28,7 +28,7 @@ namespace SICXE
                     var assembler = new Assembler(myProgram);
                     var lstPath = path + ".lst";
                     var objPath = path + ".obj";
-                    if (assembler.PassOne())
+                    if (assembler.PassOne(lstPath))
                     {
                         Console.Error.WriteLine($"\nAssembly pass one succeeded. Listing file written to \"{lstPath}\"");
 

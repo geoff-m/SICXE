@@ -15,7 +15,7 @@ namespace SICXE
 
             START = 10, // See p. 44
             END = 11, // See p. 44
-            BASE = 12, // todo: implement me
+            BASE = 12,
             CSECT = 13, // not yet implemented
             
             LTORG = 20,
@@ -53,12 +53,12 @@ namespace SICXE
                 return false;
             }
 
-            result = new AssemblerDirective(dir);
             switch (dir)
             {
-                // todo: parse arguments properly for each directive.
+                // parse arguments properly for each directive.
                 case Mnemonic.BYTE:
                 case Mnemonic.RESW:
+                case Mnemonic.RESB:
                 case Mnemonic.EQU:
                 case Mnemonic.START:
                 case Mnemonic.WORD:
@@ -68,10 +68,12 @@ namespace SICXE
                         result = null;
                         return false;
                     }
+                    result = new AssemblerDirective(dir);
                     result.Value = tokens[1];
                     result.Comment = string.Join(" ", tokens, 2, tokens.Length - 2);
                     break;
                 case Mnemonic.END:
+                    result = new AssemblerDirective(dir);
                     if (tokens.Length > 1) // Argument of END is optional.
                     {
                         result.Value = tokens[1];
@@ -80,6 +82,7 @@ namespace SICXE
                     break;
                 case Mnemonic.LTORG:
                     // LTORG takes no arguments.
+                    result = new LTORG();
                     result.Comment = string.Join(" ", tokens, 1, tokens.Length - 1);
                     break;
 
@@ -108,7 +111,7 @@ namespace SICXE
         public override string ToString(int space)
         {
             if (Label != null)
-                return $"{Label}{new string(' ', space - Label.Length + 2)}{Directive.ToString()} {Value}";
+                return $"{Label}{new string(' ', Math.Max(1, space - Label.Length + 2))}{Directive.ToString()} {Value}";
             return $"{new string(' ', space + 2)}{Directive.ToString()} {Value}";
         }
     }

@@ -56,6 +56,7 @@ namespace SICXE
             Debug.WriteLine($"\nbegin final segment {last.ToString()}");
             Debug.WriteLine(last.BaseAddress.Value.ToString("X6"));
             writer.WriteLine(last.BaseAddress.Value.ToString("X6"));
+            Debug.WriteLine(EntryPoint.ToString("X6"));
             writer.WriteLine(EntryPoint.ToString("X6"));
             foreach (byte b in last.Data)
             {

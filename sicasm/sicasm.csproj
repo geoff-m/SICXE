@@ -51,6 +51,7 @@
     <Compile Include="Instruction.cs" />
     <Compile Include="Line.cs" />
     <Compile Include="ListExtensions.cs" />
+    <Compile Include="LTORG.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RandomProgramGenerator.cs" />
