@@ -30,7 +30,7 @@ namespace SICXE
         /// <summary>
         /// If this is set, this line should be ignored by pass one.
         /// </summary>
-        public bool SkipPassOne
+        public bool FromLiteral
         { get; set; }
 
         /// <summary>
@@ -123,8 +123,6 @@ namespace SICXE
             result = null;
             return false;
         }
-
-        //        public abstract string Verbatim;
 
         /// <summary>
         /// Converts this line to a string representation, using the specified amount of whitespace after the label, if it is present.

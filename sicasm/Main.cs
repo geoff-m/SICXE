@@ -5,7 +5,7 @@ using System.IO;
 
 namespace SICXE
 {
-    class EntryPoint
+    class AssemblerToolMain
     {
         static void Main(string[] args)
         {
@@ -28,17 +28,16 @@ namespace SICXE
                     var assembler = new Assembler(myProgram);
                     var lstPath = path + ".lst";
                     var objPath = path + ".obj";
-                    if (assembler.PassOne(lstPath))
+                    if (assembler.PassOne())
                     {
-                        Console.Error.WriteLine($"\nAssembly pass one succeeded. Listing file written to \"{lstPath}\"");
-
-                        Console.WriteLine();
+                        Console.Error.WriteLine($"\nAssembly pass one succeeded.");
                         //assembler.PrintSymbolTable();
 
                         if (assembler.PassTwo(lstPath))
                         {
-                            Console.Error.WriteLine("\nAssembly pass two succeeded.");
+                            Console.Error.WriteLine($"\nAssembly pass two succeeded.\nListing file written to \"{lstPath}\".");
                             assembler.Output.WriteOBJ(objPath);
+                            Console.Error.WriteLine($"OBJ file written to \"{objPath}\".");
                         }
                         else
                         {

@@ -47,7 +47,7 @@
     <Compile Include="Assembler.cs" />
     <Compile Include="AssemblerDirective.cs" />
     <Compile Include="Binary.cs" />
-    <Compile Include="EntryPoint.cs" />
+    <Compile Include="Main.cs" />
     <Compile Include="Instruction.cs" />
     <Compile Include="Line.cs" />
     <Compile Include="ListExtensions.cs" />

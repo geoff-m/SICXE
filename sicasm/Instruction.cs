@@ -98,11 +98,7 @@ namespace SICXE
     /// In a program, represents a line that contains a SIC/XE operation.
     /// </summary>
     class Instruction : Line
-    {
-        // typedef Mnemonic int
-        // #define ADD 0x18
-
-
+    {        
         public enum Mnemonic
         {
             // Arithmetic

@@ -61,7 +61,7 @@ namespace SICXE
                 Type = LiteralType.Hex;
                 if ((payload.Length & 1) > 0)
                 {
-                    Console.Error.WriteLine("Warning: Hex literal contains uneven number of characters. The left will be padded with 0.");
+                    //Console.Error.WriteLine("Warning: Hex literal contains uneven number of characters. The left will be padded with 0.");
                     payload = '0' + payload;
                 }
                 Data = GetBytesFromHexString(payload);
