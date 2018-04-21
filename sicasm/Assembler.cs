@@ -50,8 +50,6 @@ namespace SICXE
 
         bool hitEnd = false; // We allow only one end directive.
 
-        int totalBytes;
-
         int? startAddress;
         int? firstInstructionAddress; // The address of the first instruction in the program. Used to set the base address of the code segment.
 
@@ -488,7 +486,6 @@ namespace SICXE
 
                 }
             } // For each line.
-            totalBytes = bytesSoFar;
 
             if (writer != null)
             {
