@@ -2,4 +2,4 @@
 	xbuild /p:Configuration=Release
 
 clean :
-	rm -r sicasm/bin sicasm/obj
+	rm -rf sicasm/bin sicasm/obj
