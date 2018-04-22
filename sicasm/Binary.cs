@@ -65,7 +65,9 @@ namespace SICXE
                 Debug.Write(b.ToString("X2"));
                 writer.Write(b.ToString("X2"));
             }
-            writer.WriteLine(Environment.NewLine + "!");
+            if (last.Data.Count > 0)
+                writer.WriteLine();
+            writer.WriteLine("!");
 
             writer.Dispose();
         }
