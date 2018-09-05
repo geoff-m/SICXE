@@ -661,8 +661,7 @@ namespace SICXE
                 }
 
                 // If we reached here, the line is not an instruction.
-                AssemblerDirective dir = line as AssemblerDirective;
-                if (dir != null)
+                if (line is AssemblerDirective dir)
                 {
                     Debug.Assert(dir.Address == segmentIndex);
                     byte[] buf;
@@ -755,8 +754,8 @@ namespace SICXE
 #if DEBUG
                             throw new ArgumentException($"Unrecognized assembler directive.");
 #else
-                        ReportError("Ignoring unrecognized assembler directive.", instr);
-                        break;
+                            ReportError("Ignoring unrecognized assembler directive.", instr);
+                            break;
 #endif
                     }
                 }
@@ -827,7 +826,7 @@ namespace SICXE
         private byte[] AssembleByteDirective(AssemblerDirective dir)
         {
             if (dir.Directive != AssemblerDirective.Mnemonic.BYTE)
-                throw new ArgumentException("Directive must be of BYTE type fo be processed by this method.");
+                throw new ArgumentException("Directive must be of BYTE type to be processed by this method.");
 
             string str = dir.Value;
             char byteType = dir.Value[0];
@@ -923,7 +922,6 @@ namespace SICXE
                 
                 if (instr.Format == InstructionFormat.Format4)
                 {
-                    
                     disp += programBaseAddress;
                     if (immediate)
                     {

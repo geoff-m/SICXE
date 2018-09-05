@@ -275,6 +275,11 @@ namespace SICXE
             {
                 mnemonic = mnemonic.Substring(1);
             }
+            if (mnemonic.Length < 1)
+            {
+                result = null;
+                return false;
+            }
 
             Mnemonic m;
             if (char.IsDigit(mnemonic[0]) || !Enum.TryParse(mnemonic, true, out m)) // true to ignore case.
