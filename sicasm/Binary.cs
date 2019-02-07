@@ -4,7 +4,7 @@ using System.Linq;
 using System.IO;
 using System.Diagnostics;
 
-namespace SICXE
+namespace SICXEAssembler
 {
     /// <summary>
     /// Represents a SIC/XE program that has been assembled.

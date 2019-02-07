@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace SICXE
+namespace SICXEAssembler
 {
     static class StringExtensions
     {

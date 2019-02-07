@@ -2,9 +2,9 @@
 using System.Diagnostics;
 using System.Collections.Generic;
 
-namespace SICXE
+namespace SICXEAssembler
 {
-    enum Register : byte // This will be cast to int to be stored in the same fields as addresses.
+    public enum Register : byte // This will be cast to int to be stored in the same fields as addresses.
     {
         A = 0,
         X = 1,
@@ -18,7 +18,7 @@ namespace SICXE
     /// <summary>
     /// Indicates the length--in bytes--of an assembled instruction.
     /// </summary>
-    enum InstructionFormat
+    public enum InstructionFormat
     {
         NotSet = 0,
         Format1 = 1,
@@ -28,14 +28,14 @@ namespace SICXE
         Format3Or4 = 12
     }
 
-    enum OperandType
+    public enum OperandType
     {
         Register = 1,
         Address = 2,
-        Device = 4
+        //Device = 4
     }
 
-    class Operand
+    public class Operand
     {
         public Operand(OperandType type)
         {
@@ -86,7 +86,7 @@ namespace SICXE
             if (hasValue)
             {
                 if (Type == OperandType.Register)
-                    return $"{prefix}{((Register)Value).ToString()}";
+                    return $"{prefix}{(Register)Value}";
                 return $"{prefix}{Value}";
             }
             return $"{prefix}??";
@@ -97,9 +97,9 @@ namespace SICXE
     /// <summary>
     /// In a program, represents a line that contains a SIC/XE operation.
     /// </summary>
-    class Instruction : Line
-    {        
-        public enum Mnemonic
+    public class Instruction : Line
+    {
+        public enum Mnemonic : byte
         {
             // Arithmetic
             ADD = 0x18,
@@ -152,7 +152,28 @@ namespace SICXE
             COMPR = 0xA0,
             COMP = 0x28,
             TIX = 0x2C,
-            TIXR = 0xB8
+            TIXR = 0xB8,
+            NOP = 0xFF
+        }
+
+        /// <summary>
+        /// Tests whether the given byte can begin a known opcode. If it can, the associated mnemonic is returned. Otherwise, null is returned.
+        /// </summary>
+        /// <param name="b">The byte to parse. For format 3/4 instructions, the lower 2 bits are ignored.</param>
+        /// <returns></returns>
+        public static Mnemonic? ParseMnemonic(byte b)
+        {
+            // Check all 8 bits (formats 1 and 2).
+            if (Enum.IsDefined(typeof(Mnemonic), b))
+                return (Mnemonic)b;
+
+            // Check upper 6 bits (formats 3 and 4).
+            var firstSextet = (byte)(b & 0xfc);
+            if (Enum.IsDefined(typeof(Mnemonic), firstSextet))
+                return (Mnemonic)firstSextet;
+
+            // Unrecognized.
+            return null;
         }
 
         public enum Flag : int
@@ -235,7 +256,10 @@ namespace SICXE
                     Operands = new List<Operand>();
                     Format = InstructionFormat.Format3Or4;
                     break;
-
+                case Mnemonic.NOP:
+                    Operands = new List<Operand>();
+                    Format = InstructionFormat.Format1;
+                    break;
                 default:
                     throw new NotSupportedException("That operation is not yet supported.");
             }
@@ -360,7 +384,7 @@ namespace SICXE
                 // Parse the operand as the type we expect.
                 switch (operand.Type)
                 {
-                    case OperandType.Device:
+                    //case OperandType.Device:
                     case OperandType.Address:
                         // Acceptable formats:
                         //  Number.
@@ -419,6 +443,7 @@ namespace SICXE
 
         public override string ToString()
         {
+            return ToString(1);
             string prefix;
             if (Format == InstructionFormat.Format4)
                 prefix = "+";
@@ -448,8 +473,90 @@ namespace SICXE
             else
                 prefix = "";
             if (Label != null)
-                return $"{Label}{new string(' ', space - Label.Length + 2)}{prefix}{Operation.ToString()} {string.Join(",", Operands)}";
-            return $"{new string(' ', space + 2)}{prefix}{Operation.ToString()} {string.Join(",", Operands)}";
+                prefix = $"{Label}{new string(' ', space - Label.Length + 2)}{prefix}";
+            //else
+            //prefix = $"{new string(' ', space + 2)}{prefix}";
+            if (Operands.Count == 1 && Operands[0].Type == OperandType.Address)
+            {
+                if (!Flags.HasValue)
+                    return $"{prefix} {Operation} {Operands[0]}";
+                var f = Flags.Value;
+                var operandPrefix = "";
+                var operandSuffix = "";
+
+                bool operandPositive = true;
+                bool knowOperand = Operands[0].Value.HasValue;
+                int opval = 0;
+
+                if (knowOperand)
+                {
+                    opval = Operands[0].Value.Value;
+                    if (Format == InstructionFormat.Format4)
+                    {
+                        opval = Decode20BitTwosComplement(opval, out operandPositive);
+                    }
+                    else
+                    {
+                        opval = Decode12BitTwosComplement(opval, out operandPositive);
+                    }
+                }
+
+                if (f.HasFlag(Flag.P))
+                    operandPrefix = operandPositive ? "+" : "-";
+                if (f.HasFlag(Flag.B))
+                    operandPrefix = operandPositive ? "B+" : "B-";
+                bool nFlag = f.HasFlag(Flag.N);
+                bool iFlag = f.HasFlag(Flag.I);
+                if (nFlag ^ iFlag)
+                {
+                    if (nFlag)
+                        operandPrefix = "@" + operandPrefix;
+                    if (iFlag)
+                        operandPrefix = "#" + operandPrefix;
+                }
+
+                if (f.HasFlag(Flag.X))
+                    operandSuffix = ",X";
+
+                string operandFormatString = Format == InstructionFormat.Format4 ? "X4" : "X3";
+                if (knowOperand)
+                {
+                    return $"{prefix}{Operation} {operandPrefix}0x{opval.ToString(operandFormatString)}{operandSuffix}";
+                }
+                else
+                {
+                    return $"{prefix}{Operation} {operandPrefix}0x??????{operandSuffix}";
+                }
+            }
+
+            return $"{prefix}{Operation} {string.Join(",", Operands)}";
         }
+
+        private static int Decode12BitTwosComplement(int n, out bool positive)
+        {
+            if ((n & (1 << 11)) != 0)
+            {
+                // Number is negative.
+                positive = false;
+                n = ~n + 1;
+                return n & 0xfff;
+            }
+            positive = true;
+            return n;
+        }
+
+        private static int Decode20BitTwosComplement(int n, out bool positive)
+        {
+            if ((n & (1 << 19)) != 0)
+            {
+                // Number is negative.
+                positive = false;
+                n = ~n + 1;
+                return n & 0xfffff;
+            }
+            positive = true;
+            return n;
+        }
+
     }
 }

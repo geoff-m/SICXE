@@ -9,7 +9,7 @@ using System.Diagnostics;
 using System.Timers;
 using Interlocked = System.Threading.Interlocked;
 
-namespace SICXE
+namespace SICXEAssembler
 {
     /// <summary>
     /// Generates assembly programs for the purpose of testing the assembler.

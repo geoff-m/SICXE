@@ -1,7 +1,7 @@
 ﻿
-namespace SICXE
+namespace SICXEAssembler
 {
-    enum AddressingMode
+    public enum AddressingMode
     {
         NotSet = 0,
 

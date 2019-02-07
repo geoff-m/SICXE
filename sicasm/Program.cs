@@ -6,7 +6,7 @@ using System.IO;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
-namespace SICXE
+namespace SICXEAssembler
 {
     /// <summary>
     /// Represents a SIC/XE program that has not been assembled.

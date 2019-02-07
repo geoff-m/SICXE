@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace SICXE
+namespace SICXEAssembler
 {
     /// <summary>
     /// A placeholder for a symbol specified in a program, to which the assembler will assign an address.

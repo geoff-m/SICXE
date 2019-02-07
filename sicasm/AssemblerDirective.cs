@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SICXE
+namespace SICXEAssembler
 {
     class AssemblerDirective : Line
     {

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace SICXE
+namespace SICXEAssembler
 {
     // The code segment is always contiguous.
     public class Segment : IComparable<Segment>

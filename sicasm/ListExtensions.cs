@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 
-namespace SICXE
+namespace SICXEAssembler
 {
     public static class ListExtensions
     {

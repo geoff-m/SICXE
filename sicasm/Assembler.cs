@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.IO;
 // optional features: use, csect, equ
-namespace SICXE
+namespace SICXEAssembler
 {
     class Assembler
     {

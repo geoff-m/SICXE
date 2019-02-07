@@ -2,12 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SICXE
+namespace SICXEAssembler
 {
     /// <summary>
     /// Represents a line in a user-input assembly file (a program).
     /// </summary>
-    abstract class Line
+    public abstract class Line
     {
         public string Label
         { get; set; }
