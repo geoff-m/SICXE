@@ -63,7 +63,7 @@ namespace SICXEAssembler
                 case Mnemonic.START:
                 case Mnemonic.WORD:
                 case Mnemonic.BASE:
-                    if (tokens.Length < 2) // Argument of these is required.
+                    if (tokens.Length < 2) // These directives require an argument.
                     {
                         result = null;
                         return false;

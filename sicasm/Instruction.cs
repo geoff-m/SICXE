@@ -6,13 +6,15 @@ namespace SICXEAssembler
 {
     public enum Register : byte // This will be cast to int to be stored in the same fields as addresses.
     {
-        A = 0,
+        A = 0, // source: book page 5 (pdf page 21)
         X = 1,
         L = 2,
-        B = 3,
+        B = 3, // source: book page 7 (pdf page 23)
         S = 4,
         T = 5,
-        F = 6
+        F = 6,
+        PC = 8,
+        SW = 9
     }
 
     /// <summary>
@@ -32,7 +34,6 @@ namespace SICXEAssembler
     {
         Register = 1,
         Address = 2,
-        //Device = 4
     }
 
     public class Operand
