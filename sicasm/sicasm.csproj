@@ -6,7 +6,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{031F2E6C-056E-416C-A9C1-5FDBF7840E30}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>sicasm</RootNamespace>
+    <RootNamespace>SICXEAssembler</RootNamespace>
     <AssemblyName>sicasm</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -48,6 +48,11 @@
     <Compile Include="Assembler.cs" />
     <Compile Include="AssemblerDirective.cs" />
     <Compile Include="Binary.cs" />
+    <Compile Include="English.cs" />
+    <Compile Include="ExportDirective.cs" />
+    <Compile Include="ExportedSymbol.cs" />
+    <Compile Include="ImportDirective.cs" />
+    <Compile Include="Interval.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Instruction.cs" />
     <Compile Include="Line.cs" />
@@ -64,6 +69,7 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="documentation" />
+    <Content Include="Importing and Exporting.txt" />
     <Content Include="Literals.txt" />
     <Content Include="Questions.txt" />
     <Content Include="TODO.txt" />

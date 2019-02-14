@@ -51,6 +51,9 @@ namespace SICXEAssembler
         public int? Value
         { get; set; }
 
+        public bool IsStartRelative
+        { get; set; } = false;
+
         /// <summary>
         /// Gets or sets a string that acts as a placeholder for a real value. For help in assembly.
         /// </summary>
@@ -474,7 +477,8 @@ namespace SICXEAssembler
             else
                 prefix = "";
             if (Label != null)
-                prefix = $"{Label}{new string(' ', space - Label.Length + 2)}{prefix}";
+                //prefix = $"{Label}{new string(' ', space - Label.Length + 2)}{prefix}";
+                prefix = $"{Label}{new string(' ', space)}{prefix}";
             //else
             //prefix = $"{new string(' ', space + 2)}{prefix}";
             if (Operands.Count == 1 && Operands[0].Type == OperandType.Address)

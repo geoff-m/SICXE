@@ -90,7 +90,7 @@ namespace SICXEAssembler
                         {
                             Console.Error.WriteLine($"Warning: Assembler directive should be preceded by whitespace: \"{s}\"");
                         }
-                        else
+                        else if (result is Instruction)
                         {
                             Console.Error.WriteLine($"Warning: Instruction should be preceded by whitespace: \"{s}\"");
                         }
@@ -117,6 +117,22 @@ namespace SICXEAssembler
             if (AssemblerDirective.TryParse(tokens, out dir))
             {
                 result = dir;
+                return true;
+            }
+
+            // Attempt to parse as @import.
+            ImportDirective id;
+            if (ImportDirective.TryParse(tokens, out id))
+            {
+                result = id;
+                return true;
+            }
+
+            // Attempt to parse as @export.
+            ExportDirective ed;
+            if (ExportDirective.TryParse(tokens, out ed))
+            {
+                result = ed;
                 return true;
             }
 

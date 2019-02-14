@@ -18,6 +18,8 @@ namespace SICXEAssembler
             prog = new List<Line>();
         }
 
+        public string OriginFile;
+
         List<Line> prog;
 
         private void UpdateLongestLabel()
@@ -106,6 +108,7 @@ namespace SICXEAssembler
         {
             StreamReader read = null;
             var prog = new Program();
+            prog.OriginFile = path;
             int lineCount = 0;
             int errorCount = 0;
             try

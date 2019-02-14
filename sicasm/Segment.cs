@@ -6,6 +6,8 @@ namespace SICXEAssembler
     // The code segment is always contiguous.
     public class Segment : IComparable<Segment>
     {
+        public string OriginFile;
+
         public int? BaseAddress
         { get; set; }
 

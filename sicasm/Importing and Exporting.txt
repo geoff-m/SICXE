@@ -1,0 +1,16 @@
+﻿
+
+Imput files can contain import or export statements.
+Each of these statements consists of a single line, and must occur before the START directive.
+
+The format for an export statement is this:
+
+@export name
+
+--where name is the name of any symbol defined in the file, including the labels of memory regions or instructions.
+
+The format for an import statement is this:
+
+@import name
+
+--where name is the name of any symbol not defined elsewhere in the file. The imported symbol then be used later in the file.

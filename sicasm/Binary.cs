@@ -78,7 +78,7 @@ namespace SICXEAssembler
             return $"{segments.Sum(s => s.Data.Count)} bytes in {segments.Count} segments";
         }
 
-        // For debug.
+        // For debug. Should always be true.
         // Checks whether this Binary's bytes are contiguous across all segments.
         public bool IsContiguous()
         {
@@ -99,14 +99,66 @@ namespace SICXEAssembler
             return true;
         }
 
-        struct Interval
+
+        public Interval GetMaximumRange()
         {
-            public int Start, Stop;
-            public Interval(int start, int stop)
+            int myLowest = int.MaxValue;
+            int myHighest = 0;
+            foreach (var s in Segments)
             {
-                Start = start;
-                Stop = stop;
+                int sbase = s.BaseAddress.Value;
+                if (sbase < myLowest)
+                    myLowest = sbase;
+                int shigh = sbase + s.Data.Count;
+                if (shigh > myHighest)
+                    myHighest = shigh;
             }
+            return new Interval(myLowest, myHighest);
         }
+
+        public bool CanCombineWithoutRelocating(Binary other)
+        {
+            var myRange = GetMaximumRange();
+            var otherRange = other.GetMaximumRange();
+            return !myRange.Overlaps(otherRange);
+        }
+
+        public Tuple<Segment, Segment> FindCollidingSegments(Binary other)
+        {
+            // Stupid O(n * m) method.
+            foreach (var myseg in Segments)
+            {
+                foreach (var otherseg in other.Segments)
+                {
+                    if (myseg.BaseAddress < otherseg.BaseAddress)
+                    {
+                        if (myseg.Data.Count >= otherseg.BaseAddress) // Other begins inside me.
+                            return new Tuple<Segment, Segment>(myseg, otherseg);
+                    }
+                    else
+                    {
+                        if (myseg.BaseAddress <= otherseg.Data.Count) // I begin inside other.
+                            return new Tuple<Segment, Segment>(myseg, otherseg);
+                    }
+                }
+            }
+            return null;
+            //return FindCollidingSegments(other, 0);
+        }
+
+        /*/// <summary>
+        /// Finds a pair of Segments, one from each Binary, that collide near the given address.
+        /// </summary>
+        /// <param name="other">The Binary to check for collisions with.</param>
+        /// <param name="address">A guess at the address of the collision.</param>
+        /// <returns>A tuple of Segments: the first from this Binary, the second from the other.</returns>
+        public Tuple<Segment, Segment> FindCollidingSegments(Binary other, int address)
+        {
+            Segments.g
+            foreach (var myseg in Segments)
+            {
+                if (myseg.BaseAddress >= 
+            }
+        }*/
     }
 }
