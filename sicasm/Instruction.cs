@@ -507,7 +507,7 @@ namespace SICXEAssembler
                 }
 
                 if (f.HasFlag(Flag.P))
-                    operandPrefix = operandPositive ? "+" : "-";
+                    operandPrefix = operandPositive ? "P+" : "P-";
                 if (f.HasFlag(Flag.B))
                     operandPrefix = operandPositive ? "B+" : "B-";
                 bool nFlag = f.HasFlag(Flag.N);
@@ -537,7 +537,7 @@ namespace SICXEAssembler
             return $"{prefix}{Operation} {string.Join(",", Operands)}";
         }
 
-        private static int Decode12BitTwosComplement(int n, out bool positive)
+        public static int Decode12BitTwosComplement(int n, out bool positive)
         {
             if ((n & (1 << 11)) != 0)
             {
@@ -550,7 +550,7 @@ namespace SICXEAssembler
             return n;
         }
 
-        private static int Decode20BitTwosComplement(int n, out bool positive)
+        public static int Decode20BitTwosComplement(int n, out bool positive)
         {
             if ((n & (1 << 19)) != 0)
             {
@@ -563,5 +563,17 @@ namespace SICXEAssembler
             return n;
         }
 
+        public static bool IsJump(Mnemonic op)
+        {
+            switch (op)
+            {
+                case Mnemonic.J:
+                case Mnemonic.JEQ:
+                case Mnemonic.JLT:
+                case Mnemonic.JGT:
+                    return true;
+            }
+            return false;
+        }
     }
 }

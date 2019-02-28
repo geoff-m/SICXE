@@ -24,6 +24,31 @@ namespace sicdisasm
         {
             instrs.Add(instr);
         }
+
+        public bool FindInstruction(int address, out int index)
+        {
+            var addr = new Instruction(Instruction.Mnemonic.ADD);
+            addr.Address = address;
+            index = instrs.BinarySearch(addr, new InstructionAddressMatcher());
+            return index >= 0;
+        }
+
+        class InstructionAddressMatcher : IComparer<Instruction>
+        {
+            public int Compare(Instruction x, Instruction y)
+            {
+                if (x == null)
+                {
+                    if (y == null)
+                        return 0;
+                    return y.Address.Value;
+                }
+                if (y == null)
+                    return x.Address.Value;
+                // probably need more null checks here
+                return x.Address.Value.CompareTo(y.Address.Value);
+            }
+        }
     }
 
     public class Disassembler
@@ -53,12 +78,11 @@ namespace sicdisasm
 
             var ret = new DisassemblyResult();
             Instruction nextInstr;
-            while (data.Position < length)
+            while (data.Position < offset + length)
             {
-                nextInstr = TryDisassembleInstruction(data, length - offset);
+                nextInstr = TryDisassembleInstruction(data, length);
                 if (nextInstr != null)
                 {
-                    nextInstr.Address += offset; // Fix up offset.
                     ret.AddInstruction(nextInstr);
                 }
             }
@@ -68,6 +92,123 @@ namespace sicdisasm
         public DisassemblyResult Disassemble(byte[] data)
         {
             return Disassemble(new MemoryStream(data), 0, data.Length);
+        }
+
+        public static bool TryDisassembleAbsoluteJumpTarget(Instruction instr, out int address)
+        {
+            var op = instr.Operation;
+            if (!Instruction.IsJump(op) && op != Instruction.Mnemonic.JSUB)
+            {
+                address = 0;
+                return false;
+            }
+            if (!instr.Operands[0].Value.HasValue)
+            {
+                address = 0;
+                return false;
+            }
+            var disp = instr.Operands[0].Value.Value;
+            if (!instr.Flags.HasValue)
+            {
+                // Maybe we should fail in this case?
+                address = disp;
+                return false;
+            }
+            var flags = instr.Flags.Value;
+            if (    flags.HasFlag(Instruction.Flag.B)
+                ||  flags.HasFlag(Instruction.Flag.X) 
+                || (flags.HasFlag(Instruction.Flag.N) && !flags.HasFlag(Instruction.Flag.I)))
+            {
+                // Cannot predict the address because it depends on the value of B, X, or some other location in memory.
+                address = 0;
+                return false;
+            }
+            // Ignore I flag.
+            //if (flags.HasFlag(Instruction.Flag.I) && !flags.HasFlag(Instruction.Flag.N))
+            //{
+            //    address = disp;
+            //    return true;
+            //}
+            if (flags.HasFlag(Instruction.Flag.P))
+            {
+                if (!instr.Address.HasValue)
+                {
+                    address = 0;
+                    return false;
+                }
+                bool dispPositive;
+                if (flags.HasFlag(Instruction.Flag.E))
+                {
+                    disp = Instruction.Decode20BitTwosComplement(disp, out dispPositive);
+                } else
+                {
+                    disp = Instruction.Decode12BitTwosComplement(disp, out dispPositive);
+                }
+                if (!dispPositive)
+                    disp = -disp;
+                address = disp + instr.Address.Value + (int)instr.Format;
+                return true;
+            }
+
+            address = 0;
+            return false;
+        }
+
+        public DisassemblyResult DisassembleReachable(Stream data, int start, int length)
+        {
+            data.Seek(start, SeekOrigin.Begin);
+            var ret = new DisassemblyResult();
+            int readingLeft = length;
+            var starts = new LinkedList<int>();
+            starts.AddFirst(start);
+            bool continueAfterCurrent = true;
+            do
+            {
+                var du = TryDisassembleInstruction(data, readingLeft);
+                if (du != null)
+                {
+                    ret.AddInstruction(du);
+                    readingLeft -= (int)du.Format;
+                    if (Instruction.IsJump(du.Operation))
+                    {
+                        var jumpTarget = du.Operands[0].Value.Value;
+                        var flags = du.Flags.Value;
+                        if (flags.HasFlag(Instruction.Flag.P))
+                        {
+                            jumpTarget += (int)data.Position;
+                        }
+                        Debug.WriteLine($"Adding new start: {jumpTarget:x}");
+                        starts.AddLast(jumpTarget);
+                        if (du.Operation == Instruction.Mnemonic.J)
+                        {
+                            continueAfterCurrent = false;
+                        }
+                    }
+                }
+                if (!continueAfterCurrent)
+                {
+                    int newStart;
+                    do
+                    {
+                        if (starts.Count == 0)
+                        {
+                            Debug.WriteLine("No more disassembly starts. Exiting.");
+                            return ret;
+                        }
+                        newStart = starts.First.Value;
+                        starts.RemoveFirst();
+                        Debug.WriteLine($"Removed next start: {newStart:x}...");
+
+                        // If instruction at 'newStart' has already been disassembled, discard this start and grab another.
+                    }
+                    while (ret.FindInstruction(newStart, out _));
+                    Debug.WriteLine($"Using start: {newStart:x}...");
+                    data.Seek(newStart, SeekOrigin.Begin);
+                }
+
+            } while (readingLeft > 0); // (starts.Count > 0);
+
+            return ret;
         }
 
         //public DisassemblyResult Disassemble(byte[] data, int offset, int length)
@@ -89,12 +230,11 @@ namespace sicdisasm
             var ret = new DisassemblyResult();
             int successBytes = 0;
             Instruction nextInstr;
-            while (successBytes < length)
+            while (successBytes < offset + length)
             {
-                nextInstr = TryDisassembleInstruction(data, length - offset);
+                nextInstr = TryDisassembleInstruction(data, length);
                 if (nextInstr == null)
                 {
-                    // tood fix up offset.
                     return ret;
                 }
 
@@ -142,13 +282,6 @@ namespace sicdisasm
                 return ret;
             }
 
-            // Instruction is format 3 or 4.
-            if (readLimit < 3)
-                return null; // Caller doesn't want us to read anymore.
-            int thirdByte = data.ReadByte();
-            if (thirdByte < 0)
-                return null; // Reached end of stream.
-
             bool format4 = false;
             Instruction.Flag flags = 0;
             if ((firstByte & 0b10) != 0)
@@ -168,6 +301,30 @@ namespace sicdisasm
             }
             ret.Flags = flags;
 
+            var debug_flagStrings = "";
+            if (flags.HasFlag(Instruction.Flag.N))
+                debug_flagStrings = "Indirect";
+            if (flags.HasFlag(Instruction.Flag.I))
+                debug_flagStrings += " Immediate";
+            if (flags.HasFlag(Instruction.Flag.X))
+                debug_flagStrings += " Indexed";
+            if (flags.HasFlag(Instruction.Flag.B))
+                debug_flagStrings += " Base";
+            if (flags.HasFlag(Instruction.Flag.P))
+                debug_flagStrings += " Program";
+            if (flags.HasFlag(Instruction.Flag.E))
+                debug_flagStrings += " Extended";
+
+            if (ret.Operation == Instruction.Mnemonic.RSUB)
+                return ret;
+
+            // Instruction is format 3 or 4.
+            if (readLimit < 3)
+                return null; // Caller doesn't want us to read anymore.
+            int thirdByte = data.ReadByte();
+            if (thirdByte < 0)
+                return null; // Reached end of stream.
+
             // Read a fourth byte if necessary.
             if (format4)
             {
@@ -177,14 +334,14 @@ namespace sicdisasm
                 if (fourthByte < 0)
                     return null; // Reached end of stream.
 
-                ret.Operands[0].Value = (secondByte & 0x1f) << 16 | thirdByte << 8 | fourthByte;
+                ret.Operands[0].Value = (secondByte & 0x0f) << 16 | thirdByte << 8 | fourthByte;
                 ret.Format = InstructionFormat.Format4;
                 return ret;
             }
             else
             {
-                if (ret.Operation != Instruction.Mnemonic.RSUB) // RSUB has no operands.
-                    ret.Operands[0].Value = (secondByte & 0x1f) << 8 | thirdByte;
+                //if (ret.Operation != Instruction.Mnemonic.RSUB) // RSUB has no operands.
+                ret.Operands[0].Value = (secondByte & 0x0f) << 8 | thirdByte;
                 ret.Format = InstructionFormat.Format3;
                 return ret;
             }
