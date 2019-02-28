@@ -814,7 +814,7 @@ namespace SICXEAssembler
 #if DEBUG
                             throw new ArgumentException($"Unrecognized assembler directive.");
 #else
-                            ReportError("Ignoring unrecognized assembler directive.", instr);
+                            ReportError("Ignoring unrecognized assembler directive.", dir);
                             break;
 #endif
                     }

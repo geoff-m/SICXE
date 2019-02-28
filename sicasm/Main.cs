@@ -112,9 +112,16 @@ namespace SICXEAssembler
             var exports = new Dictionary<string, ExportedSymbol>();
             foreach (var f in files.Keys)
             {
-                foreach (var expSym in files[f].Assembler.Exports.Values)
+                var assemblyExportsTable = files[f].Assembler.Exports;
+                foreach (var exportName in assemblyExportsTable.Keys)
                 {
-                    var expName = expSym.Name;
+                    if (assemblyExportsTable[exportName] == null)
+                    {
+                        Console.Error.WriteLine($"Error: Symbol \"{exportName}\" is marked as exported by \"{files[f].FilePath}\" but it is not defined!");
+                        return;
+                    }
+                    var expName = assemblyExportsTable[exportName].Name;
+                    Debug.Assert(expName == exportName);
                     if (exports.TryGetValue(expName, out ExportedSymbol existing))
                     {
                         Console.Error.WriteLine($"Error: Symbol \"{expName}\" is exported both by \"{files[f].FilePath}\" and by \"{existing.OriginProgram.OriginFile}\"!");
@@ -123,7 +130,7 @@ namespace SICXEAssembler
                     else
                     {
                         var baseAddr = files[f].Assembler.BaseAddress.Value;
-                        exports[expName] = new ExportedSymbol(files[f].Program, baseAddr, expSym);
+                        exports[expName] = new ExportedSymbol(files[f].Program, baseAddr, assemblyExportsTable[exportName]);
                     }
                 }
             }

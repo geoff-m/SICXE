@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace SICXEAssembler
 {
-    class AssemblerDirective : Line
+    public class AssemblerDirective : Line
     {
         public enum Mnemonic
         {
