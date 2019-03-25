@@ -13,4 +13,4 @@ The format for an import statement is this:
 
 @import name
 
---where name is the name of any symbol not defined elsewhere in the file. The imported symbol then be used later in the file.
+--where name is the name of any symbol not defined elsewhere in the file. The imported symbol can then be used later in the file.
