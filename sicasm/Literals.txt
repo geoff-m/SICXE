@@ -11,7 +11,7 @@ Example use of a byte literal:
 
 For a programmer, using a literal is just shorthand for defining a symbol with the same name.
 For example, a program containing the above instructions effectively also contains
-=C'i like eggs'		BYTE	asciiCodeOf(i like eggs)
+=C'i like eggs'		BYTE	69206C696B652065676773
 =X'2D37A0'			BYTE	2D37A0
 
 The location of these symbol definitions is wherever the next LTORG directive appears in the program specification.
