@@ -98,11 +98,28 @@ namespace SICXEAssembler
 
     }
 
+    public static class MnemonicExtensions
+    {
+        public static bool IsJump(this Instruction.Mnemonic value)
+        {
+            switch (value)
+            {
+                case Instruction.Mnemonic.J:
+                case Instruction.Mnemonic.JEQ:
+                case Instruction.Mnemonic.JGT:
+                case Instruction.Mnemonic.JLT:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+    }
     /// <summary>
     /// In a program, represents a line that contains a SIC/XE operation.
     /// </summary>
     public class Instruction : Line
     {
+      
         public enum Mnemonic : byte
         {
             // Arithmetic
@@ -484,7 +501,7 @@ namespace SICXEAssembler
             if (Operands.Count == 1 && Operands[0].Type == OperandType.Address)
             {
                 if (!Flags.HasValue)
-                    return $"{prefix} {Operation} {Operands[0]}";
+                    return $"{prefix} {Operation} {Operands[0]} {Comment}";
                 var f = Flags.Value;
                 var operandPrefix = "";
                 var operandSuffix = "";
@@ -526,15 +543,15 @@ namespace SICXEAssembler
                 string operandFormatString = Format == InstructionFormat.Format4 ? "X4" : "X3";
                 if (knowOperand)
                 {
-                    return $"{prefix}{Operation} {operandPrefix}0x{opval.ToString(operandFormatString)}{operandSuffix}";
+                    return $"{prefix}{Operation} {operandPrefix}0x{opval.ToString(operandFormatString)}{operandSuffix} {Comment}";
                 }
                 else
                 {
-                    return $"{prefix}{Operation} {operandPrefix}0x??????{operandSuffix}";
+                    return $"{prefix}{Operation} {operandPrefix}0x??????{operandSuffix} {Comment}";
                 }
             }
 
-            return $"{prefix}{Operation} {string.Join(",", Operands)}";
+            return $"{prefix}{Operation} {string.Join(",", Operands)} {Comment}";
         }
 
         public static int Decode12BitTwosComplement(int n, out bool positive)

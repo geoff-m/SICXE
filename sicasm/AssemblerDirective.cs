@@ -90,29 +90,21 @@ namespace SICXEAssembler
                     throw new NotImplementedException($"Assembler directive \"{tokens[0]}\" is not supported!");
             }
 
-            
-
             return true;
         }
 
         public override string ToString()
         {
-#if DEBUG
             if (Label != null)
-                return $"{Label}: {Directive.ToString()} {Value}";
-            return $"{Directive.ToString()} {Value}";
-#else
-            if (Label != null)
-                return $"{Label}\t{Directive.ToString()} {Value}";
-            return $"\t\t{Directive.ToString()} {Value}";
-#endif
+                return $"{Label}\t{Directive.ToString()} {Value} {Comment}";
+            return $"{Directive.ToString()} {Value} {Comment}";
         }
 
         public override string ToString(int space)
         {
             if (Label != null)
-                return $"{Label}{new string(' ', Math.Max(1, space - Label.Length + 2))}{Directive.ToString()} {Value}";
-            return $"{new string(' ', space + 2)}{Directive.ToString()} {Value}";
+                return $"{Label}{new string(' ', Math.Max(1, space - Label.Length + 2))}{Directive.ToString()} {Value} {Comment}";
+            return $"{new string(' ', space + 2)}{Directive.ToString()} {Value} {Comment}";
         }
     }
 }
