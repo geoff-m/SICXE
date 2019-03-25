@@ -992,8 +992,7 @@ namespace SICXEAssembler
                     }
                     else
                     {
-                        //disp += programBaseAddress;
-                        disp += programCounter;
+                        disp += programBaseAddress;
                     }
 
                     // ni xbpe

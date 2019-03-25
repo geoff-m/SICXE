@@ -20,15 +20,6 @@ namespace SICXEAssembler
         public bool AddSegment(Segment s) { return segments.Add(s); }
 
         /// <summary>
-        /// Creates a listing file that represents the binary.
-        /// </summary>
-        /// <param name="path"></param>
-        public void WriteLST(string path)
-        {
-            throw new NotSupportedException();
-        }
-
-        /// <summary>
         /// Creates an OBJ file for loading into a SIC/XE machine.
         /// </summary>
         /// <param name="path"></param>
