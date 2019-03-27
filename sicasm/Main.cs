@@ -6,9 +6,8 @@ using System.Diagnostics;
 
 namespace SICXEAssembler
 {
-    class AssemblerToolMain
+    public class AssemblerToolMain
     {
-
         class AssemblerJobPart
         {
             public readonly string FilePath;
@@ -21,7 +20,7 @@ namespace SICXEAssembler
             }
         }
 
-        static void Main(string[] args)
+        public static void Main(string[] args)
         {
 #if DEBUG
             Console.Error.WriteLine("####################  DEBUG BUILD  ####################");
@@ -159,7 +158,6 @@ namespace SICXEAssembler
                     return;
                 }
             }
-
 
             // Attempt to combine the binaries.
 

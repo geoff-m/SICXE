@@ -11,7 +11,7 @@ namespace SICXEAssembler
     /// <summary>
     /// Represents a SIC/XE program that has not been assembled.
     /// </summary>
-    class Program : IList<Line>
+    public class Program : IList<Line>
     {
         public Program()
         {

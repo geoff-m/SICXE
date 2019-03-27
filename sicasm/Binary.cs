@@ -17,7 +17,7 @@ namespace SICXEAssembler
         SortedSet<Segment> segments = new SortedSet<Segment>();
         public Segment[] Segments { get { return segments.ToArray(); } }
 
-        public bool AddSegment(Segment s) { return segments.Add(s); }
+        internal bool AddSegment(Segment s) { return segments.Add(s); }
 
         /// <summary>
         /// Creates an OBJ file for loading into a SIC/XE machine.
@@ -63,7 +63,6 @@ namespace SICXEAssembler
             writer.Dispose();
         }
 
-
         public override string ToString()
         {
             return $"{segments.Sum(s => s.Data.Count)} bytes in {segments.Count} segments";
@@ -89,7 +88,6 @@ namespace SICXEAssembler
             }
             return true;
         }
-
 
         public Interval GetMaximumRange()
         {
@@ -136,20 +134,5 @@ namespace SICXEAssembler
             return null;
             //return FindCollidingSegments(other, 0);
         }
-
-        /*/// <summary>
-        /// Finds a pair of Segments, one from each Binary, that collide near the given address.
-        /// </summary>
-        /// <param name="other">The Binary to check for collisions with.</param>
-        /// <param name="address">A guess at the address of the collision.</param>
-        /// <returns>A tuple of Segments: the first from this Binary, the second from the other.</returns>
-        public Tuple<Segment, Segment> FindCollidingSegments(Binary other, int address)
-        {
-            Segments.g
-            foreach (var myseg in Segments)
-            {
-                if (myseg.BaseAddress >= 
-            }
-        }*/
     }
 }

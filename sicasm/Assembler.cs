@@ -7,7 +7,7 @@ using System.IO;
 // optional features: use, csect, equ
 namespace SICXEAssembler
 {
-    class Assembler
+    public class Assembler
     {
         public static bool TryAssemble(Program prog, out Binary result)
         {
@@ -165,12 +165,12 @@ namespace SICXEAssembler
         #endregion
 
         private Dictionary<string, Symbol> exports;
-        public IReadOnlyDictionary<string, Symbol> Exports => exports;
+        internal IReadOnlyDictionary<string, Symbol> Exports => exports;
 
 
         // Call this in main method. all assemblers in job can share same instance.
         // main can detect and report name collisions.
-        public void GiveImports(IReadOnlyDictionary<string, ExportedSymbol> importSource)
+        internal void GiveImports(IReadOnlyDictionary<string, ExportedSymbol> importSource)
         {
             // Use each imported symbol wherever it is needed.
             foreach (var instr in prog.OfType<Instruction>())

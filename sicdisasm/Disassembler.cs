@@ -108,28 +108,28 @@ namespace sicdisasm
                 return false;
             }
             var disp = instr.Operands[0].Value.Value;
-            if (!instr.Flags.HasValue)
+            if (instr.Flags == 0)
             {
                 // Maybe we should fail in this case?
                 address = disp;
                 return false;
             }
-            var flags = instr.Flags.Value;
-            if (    flags.HasFlag(Instruction.Flag.B)
-                ||  flags.HasFlag(Instruction.Flag.X) 
-                || (flags.HasFlag(Instruction.Flag.N) && !flags.HasFlag(Instruction.Flag.I)))
+            var flags = instr.Flags;
+            if (    flags.HasFlag(InstructionFlags.B)
+                ||  flags.HasFlag(InstructionFlags.X) 
+                || (flags.HasFlag(InstructionFlags.N) && !flags.HasFlag(InstructionFlags.I)))
             {
                 // Cannot predict the address because it depends on the value of B, X, or some other location in memory.
                 address = 0;
                 return false;
             }
             // Ignore I flag.
-            //if (flags.HasFlag(Instruction.Flag.I) && !flags.HasFlag(Instruction.Flag.N))
+            //if (flags.HasFlag(InstructionFlags.I) && !flags.HasFlag(InstructionFlags.N))
             //{
             //    address = disp;
             //    return true;
             //}
-            if (flags.HasFlag(Instruction.Flag.P))
+            if (flags.HasFlag(InstructionFlags.P))
             {
                 if (!instr.Address.HasValue)
                 {
@@ -137,7 +137,7 @@ namespace sicdisasm
                     return false;
                 }
                 bool dispPositive;
-                if (flags.HasFlag(Instruction.Flag.E))
+                if (flags.HasFlag(InstructionFlags.E))
                 {
                     disp = Instruction.Decode20BitTwosComplement(disp, out dispPositive);
                 } else
@@ -172,8 +172,8 @@ namespace sicdisasm
                     if (Instruction.IsJump(du.Operation))
                     {
                         var jumpTarget = du.Operands[0].Value.Value;
-                        var flags = du.Flags.Value;
-                        if (flags.HasFlag(Instruction.Flag.P))
+                        var flags = du.Flags;
+                        if (flags.HasFlag(InstructionFlags.P))
                         {
                             jumpTarget += (int)data.Position;
                         }
@@ -283,36 +283,36 @@ namespace sicdisasm
             }
 
             bool format4 = false;
-            Instruction.Flag flags = 0;
+            InstructionFlags flags = 0;
             if ((firstByte & 0b10) != 0)
-                flags |= Instruction.Flag.N;
+                flags |= InstructionFlags.N;
             if ((firstByte & 1) != 0)
-                flags |= Instruction.Flag.I;
+                flags |= InstructionFlags.I;
             if ((secondByte & 0b10000000) != 0)
-                flags |= Instruction.Flag.X;
+                flags |= InstructionFlags.X;
             if ((secondByte & 0b01000000) != 0)
-                flags |= Instruction.Flag.B;
+                flags |= InstructionFlags.B;
             if ((secondByte & 0b00100000) != 0)
-                flags |= Instruction.Flag.P;
+                flags |= InstructionFlags.P;
             if ((secondByte & 0b00010000) != 0)
             {
-                flags |= Instruction.Flag.E;
+                flags |= InstructionFlags.E;
                 format4 = true;
             }
             ret.Flags = flags;
 
             var debug_flagStrings = "";
-            if (flags.HasFlag(Instruction.Flag.N))
+            if (flags.HasFlag(InstructionFlags.N))
                 debug_flagStrings = "Indirect";
-            if (flags.HasFlag(Instruction.Flag.I))
+            if (flags.HasFlag(InstructionFlags.I))
                 debug_flagStrings += " Immediate";
-            if (flags.HasFlag(Instruction.Flag.X))
+            if (flags.HasFlag(InstructionFlags.X))
                 debug_flagStrings += " Indexed";
-            if (flags.HasFlag(Instruction.Flag.B))
+            if (flags.HasFlag(InstructionFlags.B))
                 debug_flagStrings += " Base";
-            if (flags.HasFlag(Instruction.Flag.P))
+            if (flags.HasFlag(InstructionFlags.P))
                 debug_flagStrings += " Program";
-            if (flags.HasFlag(Instruction.Flag.E))
+            if (flags.HasFlag(InstructionFlags.E))
                 debug_flagStrings += " Extended";
 
             if (ret.Operation == Instruction.Mnemonic.RSUB)

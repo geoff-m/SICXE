@@ -9,7 +9,7 @@ namespace SICXEAssembler
     /// <summary>
     /// A placeholder for a symbol specified in a program, to which the assembler will assign an address.
     /// </summary>
-    class Symbol
+    internal class Symbol
     {
         static int _id = 0;
         public int ID

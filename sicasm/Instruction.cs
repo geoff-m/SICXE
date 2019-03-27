@@ -114,6 +114,19 @@ namespace SICXEAssembler
             }
         }
     }
+
+    [FlagsAttribute]
+    public enum InstructionFlags : byte
+    {
+        None = 0,
+        N = 0x1,
+        I = 0x2,
+        X = 0x4,
+        B = 0x8,
+        P = 0x10,
+        E = 0x20
+    }
+
     /// <summary>
     /// In a program, represents a line that contains a SIC/XE operation.
     /// </summary>
@@ -197,17 +210,7 @@ namespace SICXEAssembler
             return null;
         }
 
-        public enum Flag : int
-        {
-            N = 0x1,
-            I = 0x2,
-            X = 0x4,
-            B = 0x8,
-            P = 0x10,
-            E = 0x20
-        }
-
-        public Flag? Flags
+        public InstructionFlags Flags
         { get; set; }
 
         public IReadOnlyList<Operand> Operands
@@ -258,6 +261,7 @@ namespace SICXEAssembler
                     Format = InstructionFormat.Format3Or4;
                     break;
                 case Mnemonic.CLEAR:
+                case Mnemonic.TIXR:
                     Operands = new List<Operand>() { new Operand(OperandType.Register) }.AsReadOnly();
                     Format = InstructionFormat.Format2;
                     break;
@@ -267,7 +271,6 @@ namespace SICXEAssembler
                 case Mnemonic.COMPR:
                 case Mnemonic.DIVR:
                 case Mnemonic.MULR:
-                case Mnemonic.TIXR:
                 case Mnemonic.SHIFTL:
                 case Mnemonic.SHIFTR:
                     Operands = new List<Operand>() { new Operand(OperandType.Register), new Operand(OperandType.Register) }.AsReadOnly();
@@ -500,9 +503,9 @@ namespace SICXEAssembler
             //prefix = $"{new string(' ', space + 2)}{prefix}";
             if (Operands.Count == 1 && Operands[0].Type == OperandType.Address)
             {
-                if (!Flags.HasValue)
+                if (Flags == 0)
                     return $"{prefix} {Operation} {Operands[0]} {Comment}";
-                var f = Flags.Value;
+                var f = Flags;
                 var operandPrefix = "";
                 var operandSuffix = "";
 
@@ -523,12 +526,12 @@ namespace SICXEAssembler
                     }
                 }
 
-                if (f.HasFlag(Flag.P))
+                if (f.HasFlag(InstructionFlags.P))
                     operandPrefix = operandPositive ? "P+" : "P-";
-                if (f.HasFlag(Flag.B))
+                if (f.HasFlag(InstructionFlags.B))
                     operandPrefix = operandPositive ? "B+" : "B-";
-                bool nFlag = f.HasFlag(Flag.N);
-                bool iFlag = f.HasFlag(Flag.I);
+                bool nFlag = f.HasFlag(InstructionFlags.N);
+                bool iFlag = f.HasFlag(InstructionFlags.I);
                 if (nFlag ^ iFlag)
                 {
                     if (nFlag)
@@ -537,7 +540,7 @@ namespace SICXEAssembler
                         operandPrefix = "#" + operandPrefix;
                 }
 
-                if (f.HasFlag(Flag.X))
+                if (f.HasFlag(InstructionFlags.X))
                     operandSuffix = ",X";
 
                 string operandFormatString = Format == InstructionFormat.Format4 ? "X4" : "X3";
@@ -545,7 +548,10 @@ namespace SICXEAssembler
                 {
                     return $"{prefix}{Operation} {operandPrefix}0x{opval.ToString(operandFormatString)}{operandSuffix} {Comment}";
                 }
-                else
+                else if (Operands[0].ToString().Length > 0)
+                {
+                    return $"{prefix}{Operation} {operandPrefix}{Operands[0]}{operandSuffix} {Comment}";
+                } else
                 {
                     return $"{prefix}{Operation} {operandPrefix}0x??????{operandSuffix} {Comment}";
                 }
