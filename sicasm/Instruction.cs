@@ -51,9 +51,6 @@ namespace SICXEAssembler
         public int? Value
         { get; set; }
 
-        public bool IsStartRelative
-        { get; set; } = false;
-
         /// <summary>
         /// Gets or sets a string that acts as a placeholder for a real value. For help in assembly.
         /// </summary>
@@ -504,7 +501,7 @@ namespace SICXEAssembler
             if (Operands.Count == 1 && Operands[0].Type == OperandType.Address)
             {
                 if (Flags == 0)
-                    return $"{prefix} {Operation} {Operands[0]} {Comment}";
+                    return $"{prefix} {Operation} {Operands[0]}";
                 var f = Flags;
                 var operandPrefix = "";
                 var operandSuffix = "";
@@ -546,18 +543,18 @@ namespace SICXEAssembler
                 string operandFormatString = Format == InstructionFormat.Format4 ? "X4" : "X3";
                 if (knowOperand)
                 {
-                    return $"{prefix}{Operation} {operandPrefix}0x{opval.ToString(operandFormatString)}{operandSuffix} {Comment}";
+                    return $"{prefix}{Operation} {operandPrefix}0x{opval.ToString(operandFormatString)}{operandSuffix}";
                 }
                 else if (Operands[0].ToString().Length > 0)
                 {
-                    return $"{prefix}{Operation} {operandPrefix}{Operands[0]}{operandSuffix} {Comment}";
+                    return $"{prefix}{Operation} {operandPrefix}{Operands[0]}{operandSuffix}";
                 } else
                 {
-                    return $"{prefix}{Operation} {operandPrefix}0x??????{operandSuffix} {Comment}";
+                    return $"{prefix}{Operation} {operandPrefix}0x??????{operandSuffix}";
                 }
             }
 
-            return $"{prefix}{Operation} {string.Join(",", Operands)} {Comment}";
+            return $"{prefix}{Operation} {string.Join(",", Operands)}";
         }
 
         public static int Decode12BitTwosComplement(int n, out bool positive)

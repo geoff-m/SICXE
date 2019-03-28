@@ -186,8 +186,7 @@ namespace SICXEAssembler
                 return;
             if (importSource.TryGetValue(o.SymbolName, out ExportedSymbol es))
             {
-                o.Value = es.Symbol.Address + es.ModuleBaseAddress;
-                o.IsStartRelative = true;
+                o.Value = es.Symbol.Address;
             }
         }
 
@@ -224,10 +223,13 @@ namespace SICXEAssembler
 
             int bytesSoFar = 0; // The total number of bytes in the assembled program.
             int instructionBytes = 0; // The total number of instruction bytes in the program.
+            int currentAbsoluteAddress = 0;
             symbols = new Dictionary<string, Symbol>();
             exports = new Dictionary<string, Symbol>();
             for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
             {
+                if (startAddress.HasValue)
+                    currentAbsoluteAddress = startAddress.Value + bytesSoFar;
                 Line line = prog[lineIdx];
                 //if (line.SkipPassOne)
                 //continue;
@@ -252,11 +254,11 @@ namespace SICXEAssembler
                                 return false;
                             }
 
-                            line.Address = bytesSoFar;
+                            line.Address = currentAbsoluteAddress;
                             label = line.Label;
                             if (label != null)
                             {
-                                if (!SetSymbolAddress(label, bytesSoFar, line.FromLiteral))
+                                if (!SetSymbolAddress(label, currentAbsoluteAddress, line.FromLiteral))
                                 {
                                     Console.Error.WriteLine($"Error: Line {line.LineNumber}: Error: Multiple definitions of symbol \"{label}\"");
                                     return false;
@@ -293,15 +295,15 @@ namespace SICXEAssembler
                                 label = line.Label;
                                 if (label != null)
                                 {
-                                    if (!SetSymbolAddress(label, bytesSoFar))
+                                    if (!SetSymbolAddress(label, currentAbsoluteAddress))
                                     {
                                         Console.Error.WriteLine($"Error: Line {line.LineNumber}: Error: Multiple definitions of symbol \"{line.Label}\"");
                                         return false;
                                     }
-                                    //symbols[label].Address = bytesSoFar;
+                                    //symbols[label].Address = currentAbsoluteAddress;
                                 }
 
-                                line.Address = bytesSoFar;
+                                line.Address = currentAbsoluteAddress;
                                 bytesSoFar += Word.Size;
                             }
                             else
@@ -324,14 +326,14 @@ namespace SICXEAssembler
                                 label = line.Label;
                                 if (label != null)
                                 {
-                                    if (!SetSymbolAddress(label, bytesSoFar))
+                                    if (!SetSymbolAddress(label, currentAbsoluteAddress))
                                     {
                                         Console.Error.WriteLine($"Error: Line {line.LineNumber}: Error: Multiple definitions of symbol \"{line.Label}\"");
                                         return false;
                                     }
                                 }
 
-                                line.Address = bytesSoFar;
+                                line.Address = currentAbsoluteAddress;
                                 if (dir.Directive == AssemblerDirective.Mnemonic.RESW)
                                 {
                                     bytesSoFar += Word.Size * val;
@@ -367,7 +369,8 @@ namespace SICXEAssembler
                             if (int.TryParse(dir.Value, System.Globalization.NumberStyles.HexNumber, null, out val))
                             {
                                 startAddress = val;
-                                line.Address = 0; // by definition. That is, this is the offset relative to START.
+                                line.Address = val;
+                                currentAbsoluteAddress = val;
                             }
                             else
                             {
@@ -377,7 +380,7 @@ namespace SICXEAssembler
                             label = dir.Label;
                             if (label != null)
                             {
-                                if (!SetSymbolAddress(label, bytesSoFar))
+                                if (!SetSymbolAddress(label, currentAbsoluteAddress))
                                 {
                                     Console.Error.WriteLine($"Error: Line {line.LineNumber}: Multiple definitions of symbol \"{line.Label}\"");
                                     return false;
@@ -414,10 +417,10 @@ namespace SICXEAssembler
                                 }
                             }
 
-                            line.Address = bytesSoFar;
+                            line.Address = currentAbsoluteAddress;
                             break;
                         case AssemblerDirective.Mnemonic.LTORG:
-                            line.Address = bytesSoFar;
+                            line.Address = currentAbsoluteAddress;
                             var ltorg = (LTORG)line;
                             // Calculate number of bytes that will go here for informational purposes.
                             // PreprocessLiterals has already transformed all literals into BYTE directives,
@@ -425,11 +428,10 @@ namespace SICXEAssembler
                             int literalBytesSoFar = 0;
                             foreach (var sym in symbols)
                             {
-                                Literal lit = sym.Value as Literal;
-                                if (lit != null)
+                                if (sym.Value is Literal lit)
                                 {
                                     // todo: verify that LTORG operates on only the literals that haven't already been assembled.
-                                    lit.Address = bytesSoFar + literalBytesSoFar;
+                                    lit.Address = currentAbsoluteAddress + literalBytesSoFar;
                                     literalBytesSoFar += lit.Data.Length;
                                     ltorg.Literals.Add(lit);
                                 }
@@ -437,11 +439,11 @@ namespace SICXEAssembler
                             Console.Error.WriteLine($"Info: Line {line.LineNumber}: {literalBytesSoFar} bytes of literals pertain to LTORG at 0x{line.Address.Value.ToString("X")}.");
                             break;
                         case AssemblerDirective.Mnemonic.BASE:
-                            line.Address = bytesSoFar;
+                            line.Address = currentAbsoluteAddress;
                             label = line.Label;
                             if (label != null)
                             {
-                                if (!SetSymbolAddress(label, bytesSoFar))
+                                if (!SetSymbolAddress(label, currentAbsoluteAddress))
                                 {
                                     Console.Error.WriteLine($"Error: Line {line.LineNumber}: Error: Multiple definitions of symbol \"{line.Label}\"");
                                     return false;
@@ -473,7 +475,7 @@ namespace SICXEAssembler
                     }
 
                     if (!firstInstructionAddress.HasValue)
-                        firstInstructionAddress = bytesSoFar + startAddress;
+                        firstInstructionAddress = currentAbsoluteAddress;
 
                     // Ensure label is in the symbol table.
                     label = line.Label;
@@ -486,7 +488,7 @@ namespace SICXEAssembler
                             Console.Error.WriteLine($"Error: Line {line.LineNumber}: Multiple declarations of symbol \"{label}\"");
                             return false;
                         }
-                        symbols[label].Address = bytesSoFar;
+                        symbols[label].Address = currentAbsoluteAddress;
                     }
 
                     // If operand is a symbol, ensure we include it in the symbol table.
@@ -502,7 +504,7 @@ namespace SICXEAssembler
                     }
 
                     // Set address.
-                    line.Address = bytesSoFar;
+                    line.Address = currentAbsoluteAddress;
                     bytesSoFar += (int)instr.Format;
                     instructionBytes += (int)instr.Format;
                 }
@@ -525,7 +527,7 @@ namespace SICXEAssembler
                     int separation = prog.LongestLabel;
                     if (separation < 1)
                         separation = 1;
-                    string address = line.Address.HasValue ? (startAddress.Value + line.Address.Value).ToString("X6") : "??????";
+                    string address = line.Address.HasValue ? line.Address.Value.ToString("X6") : "??????";
                     string printedLine;
                     if (line.Comment != null && line.Comment.Length > 0)
                         printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{line.ToString(separation)}    \t{line.Comment}";
@@ -538,10 +540,7 @@ namespace SICXEAssembler
             } // For each line.
 
             if (writer != null)
-            {
                 writer.Dispose();
-            }
-
             donePassOne = true;
             return true;
         }
@@ -607,6 +606,7 @@ namespace SICXEAssembler
             }
 
         }
+#error fix 'clear x' being assmbled as if it were 'clear a' in popcnt.asm
 
         bool donePassTwo = false;
         public bool PassTwo(string lstPath = null)
@@ -630,23 +630,22 @@ namespace SICXEAssembler
                 var now = DateTime.Now;
                 writer.WriteLine($"Username: {Environment.UserName}; {now.ToShortDateString()} {now.ToLongTimeString()}");
                 writer.WriteLine("-------------------------------------------------");
-                writer.WriteLine("Assembler First Pass Report");
+                writer.WriteLine("Assembler Second Pass Report");
                 writer.WriteLine("---------------------------");
                 writer.WriteLine("Line   Address\tBinary\tSource");
                 writer.WriteLine("----   -------\t------\t---------------------------------");
             }
 
-            int currentSegmentStart = startAddress.Value;
             Segment currentSegment = new Segment
             {
-                BaseAddress = currentSegmentStart,
+                BaseAddress = startAddress.Value,
                 Data = new List<byte>(),
                 OriginFile = prog.OriginFile
             };
             Output.AddSegment(currentSegment);
 
-            int segmentIndex = 0; // Index in the code segment.
-            int overallIndex = 0;
+            int segmentBaseAddress = 0; // Index in the code segment.
+            int overallAddress = startAddress.Value;
             byte[] binInstr = null;
             int? @base = null; // for base directive.
             byte[] lineBytesToDisplay = null; // For for printing to LST file/console.
@@ -655,7 +654,7 @@ namespace SICXEAssembler
                 Line line = prog[lineIdx];
                 if (line is Instruction instr)
                 {
-                    Debug.Assert(instr.Address == overallIndex);
+                    Debug.Assert(instr.Address == overallAddress);
 
                     // Set each operand symbol's address using the symbol table.
                     for (int operandIdx = 0; operandIdx < instr.Operands.Count; ++operandIdx)
@@ -693,7 +692,6 @@ namespace SICXEAssembler
                             try
                             {
                                 binInstr = AssembleFormats34(instr,
-                                    startAddress.Value,
                                     instr.Address.Value + (int)instr.Format,
                                     @base);
                             }
@@ -713,18 +711,18 @@ namespace SICXEAssembler
 #endif
                     }
                     currentSegment.Data.AddRange(binInstr);
-                    segmentIndex += binInstr.Length;
-                    overallIndex += binInstr.Length;
+                    segmentBaseAddress += binInstr.Length;
+                    overallAddress += binInstr.Length;
                     lineBytesToDisplay = binInstr;
                 }
                 else if (line is AssemblerDirective dir)
                 {
-                    Debug.Assert(dir.Address == segmentIndex);
+                    Debug.Assert(dir.Directive == AssemblerDirective.Mnemonic.START || dir.Address == segmentBaseAddress);
                     byte[] buf;
                     switch (dir.Directive)
                     {
                         case AssemblerDirective.Mnemonic.START:
-                            // Don't do anything.
+                            segmentBaseAddress = startAddress.Value;
                             lineBytesToDisplay = null;
                             break;
                         case AssemblerDirective.Mnemonic.END:
@@ -758,8 +756,8 @@ namespace SICXEAssembler
                                 return false;
                             }
                             currentSegment.Data.AddRange(buf);
-                            segmentIndex += buf.Length;
-                            overallIndex += buf.Length;
+                            segmentBaseAddress += buf.Length;
+                            overallAddress += buf.Length;
                             lineBytesToDisplay = buf;
                             break;
                         case AssemblerDirective.Mnemonic.WORD:
@@ -772,27 +770,27 @@ namespace SICXEAssembler
                             buf = parsed.ToArray().Reverse().ToArray();
                             Debug.Assert(buf.Length == Word.Size);
                             currentSegment.Data.AddRange(buf);
-                            segmentIndex += buf.Length;
-                            overallIndex += buf.Length;
+                            segmentBaseAddress += buf.Length;
+                            overallAddress += buf.Length;
                             lineBytesToDisplay = buf.ToArray();
                             break;
                         case AssemblerDirective.Mnemonic.RESB:
                         case AssemblerDirective.Mnemonic.RESW:
-                            int UNIT;
+                            int unitSize;
                             if (dir.Directive == AssemblerDirective.Mnemonic.RESW)
-                                UNIT = Word.Size; // RESW 5 means reserve 15 bytes.
+                                unitSize = Word.Size; // RESW 5 means reserve 15 bytes.
                             else
-                                UNIT = 1; // RESB 5 means reserve 5 bytes.
-                            int size;
-                            if (int.TryParse(dir.Value, out size))
+                                unitSize = 1; // RESB 5 means reserve 5 bytes.
+                            int allocationSize;
+                            if (int.TryParse(dir.Value, out allocationSize))
                             {
                                 Output.AddSegment(currentSegment); // Push current segment.
 
                                 var newSeg = new Segment(); // Begin new segment.
                                 newSeg.OriginFile = prog.OriginFile;
-                                segmentIndex += size * UNIT;
-                                overallIndex += size * UNIT;
-                                newSeg.BaseAddress = startAddress.Value + segmentIndex;
+                                segmentBaseAddress += allocationSize * unitSize;
+                                overallAddress += allocationSize * unitSize;
+                                newSeg.BaseAddress = segmentBaseAddress;
                                 newSeg.Data = new List<byte>();
                                 Output.AddSegment(newSeg);
                                 currentSegment = newSeg;
@@ -824,7 +822,7 @@ namespace SICXEAssembler
                     int separation = prog.LongestLabel;
                     if (separation < 1)
                         separation = 1;
-                    string address = line.Address.HasValue ? (startAddress.Value + line.Address.Value).ToString("X6") : "??????";
+                    string address = line.Address.HasValue ? line.Address.Value.ToString("X6") : "??????";
                     string printedLine;
                     if (line.Comment != null && line.Comment.Length > 0)
                     {
@@ -859,7 +857,7 @@ namespace SICXEAssembler
             {
                 if (entryPoint.Address.HasValue)
                 {
-                    Output.EntryPoint = entryPoint.Address.Value + Output.Segments.First().BaseAddress.Value;
+                    Output.EntryPoint = entryPoint.Address.Value;// + Output.Segments.First().BaseAddress.Value;
                 }
                 else
                 {
@@ -874,9 +872,7 @@ namespace SICXEAssembler
             }
 
             if (writer != null)
-            {
                 writer.Dispose();
-            }
 
             donePassTwo = true;
             return true;
@@ -919,12 +915,14 @@ namespace SICXEAssembler
             ret[1] = (byte)(instr.Operands[0].Value << 4);
             if (instr.Operands.Count > 1)
                 ret[1] |= (byte)(instr.Operands[1].Value);
+            else
+                ret[1] = 0;
 
             return ret;
         }
 
         // Called during pass two.
-        private byte[] AssembleFormats34(Instruction instr, int programBaseAddress, int programCounter, int? baseRegister)
+        private byte[] AssembleFormats34(Instruction instr, int programCounter, int? baseRegister)
         {
             const int MAX_F4_DISP = 1 << 20;
             const int MIN_PC_DISP = -(1 << 11);
@@ -932,8 +930,8 @@ namespace SICXEAssembler
             const int MIN_BASE_DISP = 0;
             const int MAX_BASE_DISP = 1 << 12;
 #if DEBUG
-            //if (instr.Operation == Instruction.Mnemonic.J)
-                //Debugger.Break();
+            //if (instr.Operation == Instruction.Mnemonic.CLEAR)
+            //Debugger.Break();
 #endif
 
             int oplen = (int)instr.Format;
@@ -977,61 +975,61 @@ namespace SICXEAssembler
                     binInstr[1] |= 0x80; // Set X flag.
                 }
 
-                // Use extended addressing, if it is indicated.
-                int disp = firstOperand.Value.Value;
+                // fixed this "startrelative" shit
+                // The fact is, every symbol's address is (when created), start-relative.
+                // In many cases, this is fine because the PC in this function is also start-relative
+                // and we end up doing PC-relative addressing in many cases, so taking their difference we get the correct answer.
 
+                // But what needs to be different sometimes is that we treat an operand's address as absolute instead of start-relative.
+                // We can still do (well, attempt) PC-relative addressing as usual in such cases--it's just that the offset has to be computed differently.
+
+                // A propose this solution, which I think will simplify many parts of the program.
+                // Make it so that everything's address is ALREADY start-relative.
+                // This means to start numbering all addresses at the start offset instead of at zero every time.
+
+                // Use extended addressing, if it is indicated.
                 if (instr.Format == InstructionFormat.Format4)
                 {
+                    int addr = firstOperand.Value.Value;
                     if (immediate)
                     {
-                        if (disp < 0)
+                        if (addr < 0)
                             throw new ArgumentException("Displacement cannot be negative using extended, immediate addressing!");
 
-                        if (disp > MAX_F4_DISP)
+                        if (addr > MAX_F4_DISP)
                             throw new ArgumentException($"Displacement is too large for extended mode: maximum is {MAX_F4_DISP}.");
                     }
-                    else
-                    {
-                        disp += programBaseAddress;
-                    }
 
-                    // ni xbpe
-                    // 21 8421
+                    // ni x b p e (high nibble)
+                    // 21 8 4 2 1
                     binInstr[1] |= 0x10; // Set E flag.
-                    InsertDisplacement(binInstr, disp);
+                    InsertDisplacement(binInstr, addr);
                     return binInstr;
                 }
 
-                if (immediate)
+                if (immediate && firstOperand.SymbolName == null || firstOperand.SymbolName.Length == 0)
                 {
-                    if (disp >= MIN_PC_DISP && disp <= MAX_PC_DISP)
+                    int imm = firstOperand.Value.Value;
+                    if (imm >= MIN_PC_DISP && imm <= MAX_PC_DISP)
                     {
-                        InsertDisplacement(binInstr, disp);
+                        // Immediate fits in 12 bits.
+                        InsertDisplacement(binInstr, imm);
                         return binInstr;
                     }
                     else
                     {
-                        throw new ArgumentException($"Immediate operand cannot fit in format 3 instruction: minimum is {MIN_PC_DISP}, maximum is {MAX_PC_DISP}.");
+                        throw new ArgumentException("Immediate is too large for format 3 instruction!");
                     }
                 }
 
+                int pcDisp = firstOperand.Value.Value - programCounter;
+
                 // Try using PC-relative addressing.
-                
-                //disp = programCounter - disp; // disp now represents the offset between the operand's value and the program counter.
-                // todo: fix this.
-                // sometimes a symbol is already startaddress-relative
-                // other times it is not.
-
-                if (firstOperand.IsStartRelative)
-                    disp = disp - programCounter - startAddress.Value;
-                else
-                    disp = disp - programCounter;
-
-                if (disp >= MIN_PC_DISP && disp <= MAX_PC_DISP)
+                if (pcDisp >= MIN_PC_DISP && pcDisp <= MAX_PC_DISP)
                 {
                     // PC-relative addressing is valid.
                     binInstr[1] |= 0x20; // Set P flag.
-                    InsertDisplacement(binInstr, disp);
+                    InsertDisplacement(binInstr, pcDisp);
                     return binInstr;
                 }
 
@@ -1039,12 +1037,13 @@ namespace SICXEAssembler
                 // Base-relative addressing will "work as expected" at execution time only if the value of the base register matches the 'baseRegister' parameter of this method.
                 if (baseRegister.HasValue)
                 {
-                    disp = firstOperand.Value.Value - baseRegister.Value;
-                    if (disp >= MIN_BASE_DISP && disp <= MAX_BASE_DISP)
+
+                    int bDisp = firstOperand.Value.Value - baseRegister.Value;
+                    if (bDisp >= MIN_BASE_DISP && bDisp <= MAX_BASE_DISP)
                     {
                         // Base-relative addressing is valid.
                         binInstr[1] |= 0x40; // Set B flag.
-                        InsertDisplacement(binInstr, disp);
+                        InsertDisplacement(binInstr, bDisp);
                         return binInstr;
                     }
                 }

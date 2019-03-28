@@ -144,7 +144,7 @@ namespace SICXEAssembler
 
                 asm.GiveImports(exports); // Inform assembler of symbols exported by others.
 
-                if (asm.PassTwo(null))
+                if (asm.PassTwo(f + ".lst"))
                 {
                     Console.Error.WriteLine($"Assembly pass two succeeded for {f}.");
                     //Console.Error.WriteLine($"Listing file written to \"{lstPath}\".");
