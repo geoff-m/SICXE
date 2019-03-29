@@ -96,4 +96,18 @@ namespace SICXEAssembler
         }
 
     }
+
+    internal class EquSymbol : Symbol
+    {
+        public string Value { get; private set; }
+        public EquSymbol(string name, string value) : base(name)
+        {
+            Value = value;
+        }
+
+        public override string ToString()
+        {
+            return $"{Name}={Value}";
+        }
+    }
 }

@@ -136,6 +136,20 @@ namespace SICXEAssembler
             return true;
         }
 
+        private bool CreateEqu(string name, string value)
+        {
+            if (symbols.ContainsKey(name))
+            {
+                // The symbol already exists. Let caller display error message.
+                return false;
+            }
+            var newSymbol = new EquSymbol(name, value);
+            symbols[name] = newSymbol;
+            if (exports.ContainsKey(name))
+                exports[name] = newSymbol;
+            return true;
+        }
+
         /// <summary>
         /// Sets a symbol's value, ensuring it does not already have one. If the symbol with the specified name does not exist, it will be created.
         /// </summary>
@@ -166,7 +180,6 @@ namespace SICXEAssembler
 
         private Dictionary<string, Symbol> exports;
         internal IReadOnlyDictionary<string, Symbol> Exports => exports;
-
 
         // Call this in main method. all assemblers in job can share same instance.
         // main can detect and report name collisions.
@@ -451,7 +464,19 @@ namespace SICXEAssembler
                             }
 
                             TouchSymbol(dir.Value);
-
+                            break;
+                        case AssemblerDirective.Mnemonic.EQU:
+                            label = dir.Label;
+                            if (label == null || label.Length == 0)
+                            {
+                                Console.Error.WriteLine($"Error: Line {line.LineNumber}: EQU directive must have a label.");
+                                break;
+                            }
+                            if (!CreateEqu(label, dir.Value))
+                            {
+                                Console.Error.WriteLine($"Error: Line {line.LineNumber}: Label \"{label}\" is already defined.");
+                                break;
+                            }
                             break;
                     } // switch (dir.Directive).
 
@@ -663,7 +688,22 @@ namespace SICXEAssembler
                         {
                             string sym = TrimIndexer(operand.SymbolName);
                             Debug.Assert(sym != null);
-                            operand.Value = symbols[sym].Address;
+                            var symbolEntry = symbols[sym];
+                            if (symbolEntry is EquSymbol equ)
+                            {
+                                if (int.TryParse(equ.Value, out int equValueAsInt))
+                                {
+                                    operand.Value = equValueAsInt;
+                                } else
+                                {
+                                    Console.Error.WriteLine($"Error: Line {line.LineNumber}: Integer operand is required but \"{equ.Value}\" is not in a valid format.");
+                                }
+                            }
+                            else
+                            {
+                                operand.Value = symbolEntry.Address;
+                            }
+
                         }
                     }
                     var operands = instr.Operands;
@@ -716,7 +756,7 @@ namespace SICXEAssembler
                 }
                 else if (line is AssemblerDirective dir)
                 {
-                    Debug.Assert(dir.Directive == AssemblerDirective.Mnemonic.START || dir.Address == segmentBaseAddress);
+                    Debug.Assert(dir.Directive == AssemblerDirective.Mnemonic.START || dir.Directive == AssemblerDirective.Mnemonic.EQU || dir.Address == segmentBaseAddress);
                     byte[] buf;
                     switch (dir.Directive)
                     {

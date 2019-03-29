@@ -17,9 +17,9 @@ namespace SICXEAssembler
             END = 11, // See p. 44
             BASE = 12,
             CSECT = 13, // not yet implemented
-            
+
             LTORG = 20,
-                EQU = 30
+            EQU = 30
         }
 
         public Mnemonic Directive
