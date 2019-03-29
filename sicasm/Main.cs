@@ -210,9 +210,7 @@ namespace SICXEAssembler
             bigBin.EntryPoint = files[inputFilePaths[0]].Binary.EntryPoint; // Use the entry point of the first file on the command line.
 
             // Write the binary to file.
-            //bigBin.WriteLST(files[0] + ".lst");
             bigBin.WriteOBJ(inputFilePaths[0] + ".obj");
-
 
         }
 

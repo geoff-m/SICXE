@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Text;
 
 namespace SICXEAssembler
 {
@@ -129,7 +130,7 @@ namespace SICXEAssembler
     /// </summary>
     public class Instruction : Line
     {
-      
+
         public enum Mnemonic : byte
         {
             // Arithmetic
@@ -268,9 +269,14 @@ namespace SICXEAssembler
                 case Mnemonic.COMPR:
                 case Mnemonic.DIVR:
                 case Mnemonic.MULR:
+                    Operands = new List<Operand>() { new Operand(OperandType.Register), new Operand(OperandType.Register) }.AsReadOnly();
+                    Format = InstructionFormat.Format2;
+                    break;
                 case Mnemonic.SHIFTL:
                 case Mnemonic.SHIFTR:
-                    Operands = new List<Operand>() { new Operand(OperandType.Register), new Operand(OperandType.Register) }.AsReadOnly();
+                    // The second operand isn't really an address, but we mark it that way so that it isn't ToStringged as a register.
+                    // For example, we don't want to print "SHIFTR A,PC" instead of "SHIFTR A,8".
+                    Operands = new List<Operand>() { new Operand(OperandType.Register), new Operand(OperandType.Address) }.AsReadOnly();
                     Format = InstructionFormat.Format2;
                     break;
                 case Mnemonic.RSUB:
@@ -334,6 +340,8 @@ namespace SICXEAssembler
             }
 
             var ret = new Instruction(m);
+            //if (m == Mnemonic.CLEAR)
+            //    Debugger.Break();
 
             if (sic)
                 ret.Flags = 0;
@@ -428,6 +436,12 @@ namespace SICXEAssembler
                         int addr;
                         if (int.TryParse(token, out addr))
                         {
+                            if (ret.Format == InstructionFormat.Format2 && (addr < 0 || addr > 15))
+                            {
+                                Console.Error.WriteLine("Format 2 operand must be on [0, 15].");
+                                result = null;
+                                return false;
+                            }
                             operand.Value = addr;
                         }
                         else
@@ -548,13 +562,23 @@ namespace SICXEAssembler
                 else if (Operands[0].ToString().Length > 0)
                 {
                     return $"{prefix}{Operation} {operandPrefix}{Operands[0]}{operandSuffix}";
-                } else
+                }
+                else
                 {
                     return $"{prefix}{Operation} {operandPrefix}0x??????{operandSuffix}";
                 }
             }
 
-            return $"{prefix}{Operation} {string.Join(",", Operands)}";
+            var sb = new StringBuilder();
+            sb.Append($"{prefix}{Operation}");
+            if (Operands.Count == 0)
+                return sb.ToString();
+            sb.Append(' ');
+            sb.Append(Operands[0].Type == OperandType.Address ? Operands[0].ToString() : Enum.GetName(typeof(Register), Operands[0].Value));
+            if (Operands.Count == 2)
+                sb.AppendFormat(",{0}", Operands[1].Type == OperandType.Address ? Operands[1].ToString() : Enum.GetName(typeof(Register), Operands[1].Value));
+            return sb.ToString();
+            //return {string.Join(",", Operands)}";
         }
 
         public static int Decode12BitTwosComplement(int n, out bool positive)

@@ -606,7 +606,6 @@ namespace SICXEAssembler
             }
 
         }
-#error fix 'clear x' being assmbled as if it were 'clear a' in popcnt.asm
 
         bool donePassTwo = false;
         public bool PassTwo(string lstPath = null)
@@ -915,8 +914,6 @@ namespace SICXEAssembler
             ret[1] = (byte)(instr.Operands[0].Value << 4);
             if (instr.Operands.Count > 1)
                 ret[1] |= (byte)(instr.Operands[1].Value);
-            else
-                ret[1] = 0;
 
             return ret;
         }
@@ -929,10 +926,6 @@ namespace SICXEAssembler
             const int MAX_PC_DISP = 1 << 11;
             const int MIN_BASE_DISP = 0;
             const int MAX_BASE_DISP = 1 << 12;
-#if DEBUG
-            //if (instr.Operation == Instruction.Mnemonic.CLEAR)
-            //Debugger.Break();
-#endif
 
             int oplen = (int)instr.Format;
 
@@ -1007,6 +1000,7 @@ namespace SICXEAssembler
                     return binInstr;
                 }
 
+                // If immediate and the operand is a number, put that number into the operand field.
                 if (immediate && firstOperand.SymbolName == null || firstOperand.SymbolName.Length == 0)
                 {
                     int imm = firstOperand.Value.Value;
