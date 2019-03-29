@@ -436,13 +436,21 @@ namespace SICXEAssembler
                         int addr;
                         if (int.TryParse(token, out addr))
                         {
-                            if (ret.Format == InstructionFormat.Format2 && (addr < 0 || addr > 15))
+                            if (ret.Operation == Mnemonic.SHIFTL || ret.Operation == Mnemonic.SHIFTR)
                             {
-                                Console.Error.WriteLine("Format 2 operand must be on [0, 15].");
-                                result = null;
-                                return false;
+                                if (addr == 0)
+                                {
+                                    Console.Error.WriteLine("Shift by zero is not allowed.");
+                                    result = null;
+                                    return false;
+                                }
+                                // The book says to subtract one.
+                                // Osprey's sicasm does it too.
+                                operand.Value = addr - 1; 
+                            } else
+                            {
+                                operand.Value = addr;
                             }
-                            operand.Value = addr;
                         }
                         else
                         {
@@ -576,7 +584,16 @@ namespace SICXEAssembler
             sb.Append(' ');
             sb.Append(Operands[0].Type == OperandType.Address ? Operands[0].ToString() : Enum.GetName(typeof(Register), Operands[0].Value));
             if (Operands.Count == 2)
-                sb.AppendFormat(",{0}", Operands[1].Type == OperandType.Address ? Operands[1].ToString() : Enum.GetName(typeof(Register), Operands[1].Value));
+            {
+                if (Operation == Mnemonic.SHIFTL || Operation == Mnemonic.SHIFTR)
+                {
+                    sb.AppendFormat(",{0}", (Operands[1].Value + 1).ToString()); // +1 because we subtracted 1 from the value in the source program.
+                                                                           // We did that because the book said to. And osprey's sicasm does it.
+                }
+                else
+                    sb.AppendFormat(",{0}", Operands[1].Type == OperandType.Address ? Operands[1].ToString() : Enum.GetName(typeof(Register), Operands[1].Value));
+            }
+                
             return sb.ToString();
             //return {string.Join(",", Operands)}";
         }
