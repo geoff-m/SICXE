@@ -1,0 +1,1157 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Diagnostics;
+using System.IO;
+// optional features: use, csect, equ
+namespace SICXEAssembler
+{
+    public class FileAssembler
+    {
+        public static bool TryAssemble(Program prog, out Binary result)
+        {
+            try
+            {
+                var inst = new FileAssembler(prog);
+                inst.PassOne();
+                inst.PassTwo();
+                result = inst.Output;
+                return true;
+            }
+            catch (Exception)
+            {
+                result = null;
+                return false;
+            }
+        }
+
+        Program prog;
+
+        public Binary Output
+        { get; private set; }
+
+        public FileAssembler(Program p)
+        {
+            prog = p;
+            Output = new Binary();
+        }
+
+        /// <summary>
+        /// This points to somewhere in 'codeSegment'.
+        /// </summary>
+        Symbol entryPoint = null;
+
+        bool hitEnd = false; // We allow only one end directive.
+
+        public int? BaseAddress => startAddress;
+        int? startAddress;
+        int? firstInstructionAddress; // The address of the first instruction in the program. Used to set the base address of the code segment.
+
+        #region Symbols
+        Dictionary<string, Symbol> symbols;
+
+        public void PrintSymbolTable()
+        {
+            if (symbols == null)
+                return;
+
+            Console.WriteLine($"The symbol table contains {symbols.Count} {English.Pluralize(symbols.Count, "entry")}.");
+            int start;
+            if (startAddress.HasValue)
+            {
+                start = startAddress.Value;
+                Console.WriteLine("Name\t\tAddress");
+                Console.WriteLine("----\t\t-------");
+            }
+            else
+            {
+                start = 0;
+                Console.WriteLine("Name\t\tAddress (Relative)");
+                Console.WriteLine("----\t\t------------------");
+            }
+
+            foreach (var sym in symbols.Values)
+            {
+                if (sym.Address.HasValue)
+                {
+                    Console.WriteLine($"{sym.Name}\t\t{(start + sym.Address.Value).ToString("X6")}");
+                }
+                else
+                {
+                    Console.WriteLine($"{sym.Name}\t\t<not set>");
+                }
+            }
+            Console.WriteLine();
+        }
+
+        /// <summary>
+        /// Creates the symbol with the specified name if it does not exist.
+        /// </summary>
+        /// <param name="name"></param>
+        private void TouchSymbol(string name)
+        {
+            if (!symbols.ContainsKey(name))
+            {
+                Symbol newSymbol;
+                if (Literal.StringIsLiteralName(name))
+                {
+                    newSymbol = new Literal(name);
+                    //symbols.Add(name, new Literal(name));
+                }
+                else
+                {
+                    newSymbol = new Symbol(name);
+                    //symbols.Add(name, new Symbol(name));
+                }
+                symbols.Add(name, newSymbol);
+                if (exports.ContainsKey(name))
+                    exports[name] = newSymbol;
+            }
+        }
+
+        /// <summary>
+        /// Creates a symbol, ensuring it does not already exist.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns>True if the symbol was created. False if it already exists.</returns>
+        private bool CreateSymbol(string name)
+        {
+            if (symbols.ContainsKey(name))
+            {
+                // The symbol already exists. Let caller display error message.
+                return false;
+            }
+            var newSymbol = new Symbol(name);
+            symbols[name] = newSymbol;
+            if (exports.ContainsKey(name))
+                exports[name] = newSymbol;
+            return true;
+        }
+
+        private bool CreateEqu(string name, string value)
+        {
+            if (symbols.ContainsKey(name))
+            {
+                // The symbol already exists. Let caller display error message.
+                return false;
+            }
+            var newSymbol = new EquSymbol(name, value);
+            symbols[name] = newSymbol;
+            if (exports.ContainsKey(name))
+                exports[name] = newSymbol;
+            return true;
+        }
+
+        /// <summary>
+        /// Returns the predefined EQU symbol, if any.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        private EquSymbol GetEqu(string name)
+        {
+            if (symbols.TryGetValue(name, out Symbol sym))
+            {
+                if (sym is EquSymbol es)
+                    return es;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Sets a symbol's value, ensuring it does not already have one. If the symbol with the specified name does not exist, it will be created.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="address"></param>
+        /// <returns>True on success. False if the symbol already has a value assigned.</returns>
+        private bool SetSymbolAddress(string name, int address, bool update = false)
+        {
+            Symbol existing;
+            if (symbols.TryGetValue(name, out existing))
+            {
+                if (!update && existing.Address.HasValue)
+                {
+                    // The symbol already has value assigned. Let caller display error message.
+                    return false;
+                }
+                existing.Address = address;
+                return true;
+            }
+            // The symbol does not exist. We create it and assign it a value at the same time.
+            var newSymbol = new Symbol(name) { Address = address };
+            symbols.Add(name, newSymbol);
+            if (exports.ContainsKey(name))
+                exports[name] = newSymbol;
+            return true;
+        }
+        #endregion
+
+        private Dictionary<string, Symbol> exports;
+        internal IReadOnlyDictionary<string, Symbol> Exports => exports;
+
+        // Call this in main method. all assemblers in job can share same instance.
+        // main can detect and report name collisions.
+        internal void GiveImports(IReadOnlyDictionary<string, ExportedSymbol> importSource)
+        {
+            // Use each imported symbol wherever it is needed.
+            foreach (var instr in prog.OfType<Instruction>())
+            {
+                foreach (var operand in instr.Operands)
+                    UseImport(operand, importSource);
+            }
+        }
+
+        private void UseImport(Operand o, IReadOnlyDictionary<string, ExportedSymbol> importSource)
+        {
+            if (o.Value.HasValue)
+                return;
+            if (importSource.TryGetValue(o.SymbolName, out ExportedSymbol es))
+            {
+                o.Value = es.Symbol.Address;
+            }
+        }
+
+        bool donePassOne = false;
+        /// <summary>
+        /// Takes account of all symbols declared or referenced, and computes the total length of the assembled binary.
+        /// </summary>
+        /// <param name="lstPath">The path of the file to which a listing of the partially assembled program will be written. If the file does not exist, it will be created. If null, no file is written.</param>
+        /// <returns>True if assembly can continue. False on failure.</returns>
+        public void PassOne(string lstPath = null)
+        {
+            if (donePassOne)
+            {
+                // This indicates a bug.
+                throw new InvalidOperationException("Pass one has already been done!");
+            }
+            //Console.Error.WriteLine("Beginning assembly pass one...\n");
+            PreprocessLiterals();
+            StreamWriter writer = null;
+            if (lstPath != null)
+            {
+                writer = new StreamWriter(lstPath, false);
+                writer.WriteLine($"Geoff's SIC/XE Assembler (built on {_BUILD_DATE.ToShortDateString()})");
+                var now = DateTime.Now;
+                writer.WriteLine($"Username: {Environment.UserName}; {now.ToShortDateString()} {now.ToLongTimeString()}");
+                writer.WriteLine("-------------------------------------------------");
+                writer.WriteLine("Assembler First Pass Report");
+                writer.WriteLine("---------------------------");
+                writer.WriteLine("Line   Address\tSource");
+                writer.WriteLine("----   -------\t---------------------------------");
+                //Console.Error.WriteLine("Line   Address\tSource");
+                //Console.Error.WriteLine("----   -------\t---------------------------------");
+            }
+
+            int bytesSoFar = 0; // The total number of bytes in the assembled program.
+            int instructionBytes = 0; // The total number of instruction bytes in the program.
+            int currentAbsoluteAddress = 0;
+            symbols = new Dictionary<string, Symbol>();
+            exports = new Dictionary<string, Symbol>();
+            for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
+            {
+                if (startAddress.HasValue)
+                    currentAbsoluteAddress = startAddress.Value + bytesSoFar;
+                Line line = prog[lineIdx];
+                //if (line.SkipPassOne)
+                //continue;
+                string label;
+                if (line is AssemblerDirective dir)
+                {
+                    int val;
+                    switch (dir.Directive)
+                    {
+                        case AssemblerDirective.Mnemonic.BYTE:
+                            if (dir.Value == null)
+                            {
+                                throw new InvalidProgramException($"Incomplete BYTE declaration is not allowed: {line.ToString()}", line);
+                            }
+
+                            var byteRegex = new Regex("([xc])'(.+)'", RegexOptions.IgnoreCase);
+                            var match = byteRegex.Match(dir.Value);
+                            if (!match.Success)
+                            {
+                                throw new InvalidProgramException($"Cannot parse argument to BYTE directive.", line);
+                            }
+
+                            line.Address = currentAbsoluteAddress;
+                            label = line.Label;
+                            if (label != null)
+                            {
+                                if (!SetSymbolAddress(label, currentAbsoluteAddress, line.FromLiteral))
+                                {
+                                    throw new InvalidProgramException($"Multiple definitions of symbol \"{label}\"", line);
+                                }
+                            }
+
+                            int dataLength = match.Groups[2].Value.Length;
+                            switch (match.Groups[1].Value[0])
+                            {
+                                case 'x':
+                                case 'X':
+                                    if (dataLength % 2 != 0)
+                                    {
+                                        //Console.Error.WriteLine($"Warning: Line {line.LineNumber}: Hex string has uneven number of characters. The left will be padded with 0.");
+                                    }
+                                    // For a hex literal, each pair of characters is a byte.
+                                    bytesSoFar += (int)Math.Ceiling(dataLength / 2d);
+                                    break;
+                                case 'c':
+                                case 'C':
+                                    // For a character literal, each character is one byte.
+                                    bytesSoFar += dataLength;
+                                    break;
+                            }
+                            break;
+                        case AssemblerDirective.Mnemonic.WORD:
+                            if (dir.Value == null)
+                            {
+                                throw new InvalidProgramException($"Incomplete WORD declaration is not allowed: {line.ToString()}", line);
+                            }
+                            if (int.TryParse(dir.Value, out val))
+                            {
+                                label = line.Label;
+                                if (label != null)
+                                {
+                                    if (!SetSymbolAddress(label, currentAbsoluteAddress))
+                                    {
+                                        throw new InvalidProgramException($"Multiple definitions of symbol \"{line.Label}\"", line);
+                                    }
+                                    //symbols[label].Address = currentAbsoluteAddress;
+                                }
+
+                                line.Address = currentAbsoluteAddress;
+                                bytesSoFar += Word.Size;
+                            }
+                            else
+                            {
+                                // todo: some word directives don't have the form of an integer. handle these.
+                                throw new InvalidProgramException($"Could not parse word \"{dir.Value}\" in \"{dir.ToString()}\"", line);
+                            }
+                            break;
+                        case AssemblerDirective.Mnemonic.RESW:
+                        case AssemblerDirective.Mnemonic.RESB:
+                            if (dir.Value == null)
+                            {
+                                throw new InvalidProgramException($"Incomplete RESW or RESB declaration is not allowed: {line.ToString()}", line);
+                            }
+
+                            var valueToParse = dir.Value;
+                            var equVal = GetEqu(dir.Value);
+                            if (equVal != null)
+                                valueToParse = equVal.Value;
+                            if (int.TryParse(valueToParse, out val))
+                            {
+                                label = line.Label;
+                                if (label != null)
+                                {
+                                    if (!SetSymbolAddress(label, currentAbsoluteAddress))
+                                    {
+                                        throw new InvalidProgramException($"Multiple definitions of symbol \"{line.Label}\"", line);
+                                    }
+                                }
+                                line.Address = currentAbsoluteAddress;
+                                if (dir.Directive == AssemblerDirective.Mnemonic.RESW)
+                                {
+                                    bytesSoFar += Word.Size * val;
+                                }
+                                else
+                                {
+                                    bytesSoFar += val;
+                                }
+                            }
+                            else
+                            {
+                                throw new InvalidProgramException($"Could not parse integer \"{valueToParse}\".", line);
+                            }
+                            break;
+                        case AssemblerDirective.Mnemonic.START:
+                            if (hitEnd)
+                            {
+                                throw new InvalidProgramException($"Assembler directive \"{dir.ToString()}\" cannot appear after END.", line);
+                            }
+                            if (startAddress.HasValue)
+                            {
+                                throw new InvalidProgramException($"Multiple START directives are not allowed.", line);
+                            }
+
+                            if (dir.Value == null)
+                            {
+                                throw new InvalidProgramException($"START directive must be followed by an address!", line);
+                            }
+                            if (int.TryParse(dir.Value, System.Globalization.NumberStyles.HexNumber, null, out val))
+                            {
+                                startAddress = val;
+                                line.Address = val;
+                                currentAbsoluteAddress = val;
+                            }
+                            else
+                            {
+                                throw new InvalidProgramException($"Cannot parse start address \"{dir.Value}\".", line);
+                            }
+                            label = dir.Label;
+                            if (label != null)
+                            {
+                                if (!SetSymbolAddress(label, currentAbsoluteAddress))
+                                {
+                                    throw new InvalidProgramException($"Multiple definitions of symbol \"{line.Label}\"", line);
+                                }
+                            }
+                            break;
+                        case AssemblerDirective.Mnemonic.END:
+                            if (hitEnd)
+                            {
+                                throw new InvalidProgramException($"Multiple END directives are not allowed.", line);
+                            }
+                            hitEnd = true;
+
+                            if (dir.Value == null)
+                            {
+                                Console.Error.WriteLine($"Warning: Line {line.LineNumber}: Empty END directive.");
+                            }
+                            else
+                            {
+                                if (int.TryParse(dir.Value, out val))
+                                {
+                                    if (line.Label != null)
+                                        if (!CreateSymbol(line.Label))
+                                        {
+                                            throw new InvalidProgramException($"Multiple declarations of symbol \"{line.Label}\"", line);
+                                        }
+                                }
+                                else
+                                {
+                                    TouchSymbol(dir.Value);
+                                    entryPoint = symbols[dir.Value];
+                                }
+                            }
+
+                            line.Address = currentAbsoluteAddress;
+                            break;
+                        case AssemblerDirective.Mnemonic.LTORG:
+                            line.Address = currentAbsoluteAddress;
+                            var ltorg = (LTORG)line;
+                            // Calculate number of bytes that will go here for informational purposes.
+                            // PreprocessLiterals has already transformed all literals into BYTE directives,
+                            // so there's no need to grow the binary due to LTORG at this point.
+                            int literalBytesSoFar = 0;
+                            foreach (var sym in symbols)
+                            {
+                                if (sym.Value is Literal lit)
+                                {
+                                    // todo: verify that LTORG operates on only the literals that haven't already been assembled.
+                                    lit.Address = currentAbsoluteAddress + literalBytesSoFar;
+                                    literalBytesSoFar += lit.Data.Length;
+                                    ltorg.Literals.Add(lit);
+                                }
+                            }
+                            Console.Error.WriteLine($"Info: Line {line.LineNumber}: {literalBytesSoFar} bytes of literals pertain to LTORG at 0x{line.Address.Value.ToString("X")}.");
+                            break;
+                        case AssemblerDirective.Mnemonic.BASE:
+                            line.Address = currentAbsoluteAddress;
+                            label = line.Label;
+                            if (label != null)
+                            {
+                                if (!SetSymbolAddress(label, currentAbsoluteAddress))
+                                {
+                                    throw new InvalidProgramException($"Multiple definitions of symbol \"{line.Label}\"", line);
+                                }
+                            }
+
+                            TouchSymbol(dir.Value);
+                            break;
+                        case AssemblerDirective.Mnemonic.EQU:
+                            label = dir.Label;
+                            if (label == null || label.Length == 0)
+                            {
+                                throw new InvalidProgramException($"EQU directive must have a label.", line);
+                                break;
+                            }
+                            if (!CreateEqu(label, dir.Value))
+                            {
+                                throw new InvalidProgramException($"Label \"{label}\" is already defined.", line);
+                                break;
+                            }
+                            break;
+                    } // switch (dir.Directive).
+
+                    if (!startAddress.HasValue)
+                    {
+                        throw new InvalidProgramException($"Assembler directive \"{dir.ToString()}\" cannot appear before START.", line);
+                    }
+                }
+                else if (line is Instruction)
+                {
+                    if (!startAddress.HasValue)
+                    {
+                        throw new InvalidProgramException($"Code cannot appear before START directive.", line);
+                    }
+                    if (hitEnd)
+                    {
+                        throw new InvalidProgramException($"Code cannot appear after END.", line);
+                    }
+
+                    if (!firstInstructionAddress.HasValue)
+                        firstInstructionAddress = currentAbsoluteAddress;
+
+                    // Ensure label is in the symbol table.
+                    label = line.Label;
+                    if (label != null)
+                    {
+                        TouchSymbol(label);
+                        if (symbols[label].Address != null)
+                        //if (!CreateSymbol(label))
+                        {
+                            throw new InvalidProgramException($"Multiple declarations of symbol \"{label}\"", line);
+                        }
+                        symbols[label].Address = currentAbsoluteAddress;
+                    }
+
+                    // If operand is a symbol, ensure we include it in the symbol table.
+                    var instr = (Instruction)line;
+                    if ((instr.Format == InstructionFormat.Format3 || instr.Format == InstructionFormat.Format4) && instr.Operands.Count > 0)
+                    {
+                        var sym = instr.Operands[0].SymbolName;
+                        if (sym != null)
+                        {
+                            sym = TrimIndexer(sym);
+                            TouchSymbol(sym);
+                        }
+                    }
+
+                    // Set address.
+                    line.Address = currentAbsoluteAddress;
+                    bytesSoFar += (int)instr.Format;
+                    instructionBytes += (int)instr.Format;
+                }
+                else if (line is ExportDirective)
+                {
+                    var expLabel = line.Label;
+                    if (exports.ContainsKey(expLabel))
+                    {
+                        throw new InvalidProgramException($"Multiple export directives for \"{expLabel}\".", line);
+                    }
+                    else
+                    {
+                        exports[expLabel] = null; // To be set later this pass, once we encounter a definition for the symbol.
+                    }
+                }
+
+                if (writer != null)
+                {
+                    int separation = prog.LongestLabel;
+                    if (separation < 1)
+                        separation = 1;
+                    string address = line.Address.HasValue ? line.Address.Value.ToString("X6") : "??????";
+                    string printedLine;
+                    if (line.Comment != null && line.Comment.Length > 0)
+                        printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{line.ToString(separation)}    \t{line.Comment}";
+                    else
+                        printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{line.ToString(separation)}";
+                    Console.WriteLine(printedLine);
+                    writer.WriteLine(printedLine);
+
+                }
+            } // For each line.
+
+            if (writer != null)
+                writer.Dispose();
+            donePassOne = true;
+        }
+
+        private void PreprocessLiterals()
+        {
+            var newLiterals = new List<Literal>();
+            for (int i = 0; i < prog.Count; ++i)
+            {
+                var line = prog[i];
+                var instr = line as Instruction;
+                if (instr != null)
+                {
+                    foreach (var operand in instr.Operands)
+                    {
+                        var symName = operand.SymbolName;
+                        if (symName != null && Literal.StringIsLiteralName(symName))
+                        {
+                            newLiterals.Add(new Literal(symName));
+                        }
+                    }
+                }
+                else
+                {
+                    var dir = line as AssemblerDirective;
+                    if (dir == null)
+                    {
+                        if (line is ImportDirective || line is ExportDirective)
+                            continue;
+#if DEBUG
+
+                        throw new InvalidOperationException("Unrecognized line type!?");
+#else
+                        continue; // Ignore this line.
+#endif
+                    }
+                    if (dir.Directive == AssemblerDirective.Mnemonic.LTORG)
+                    {
+                        int litOffset = 1;
+                        foreach (var lit in newLiterals)
+                        {
+                            var newDir = new AssemblerDirective(AssemblerDirective.Mnemonic.BYTE);
+                            newDir.Comment = "Generated by assembler";
+                            newDir.Label = lit.Name;
+                            newDir.Value = lit.Name.Substring(1); // Trim leading '=' to get BYTE argument.
+                            newDir.FromLiteral = true; // Tell pass one to ignore this.
+                            Debug.WriteLine($"LTORG: Adding new line {newDir.ToString()}");
+                            prog.Insert(i + litOffset++, newDir);
+                        }
+                        newLiterals.Clear();
+                    }
+                }
+            }
+            // Take care of any remaining literals (implicit final LTORG).
+            foreach (var lit in newLiterals)
+            {
+                var newDir = new AssemblerDirective(AssemblerDirective.Mnemonic.BYTE);
+                newDir.Comment = "Generated by assembler";
+                newDir.Label = lit.Name;
+                newDir.Value = lit.Name.Substring(1); // Trim leading '=' to get BYTE argument.
+                newDir.FromLiteral = true; // Tell pass one to ignore this.
+                prog.Insert(prog.Count - 1, newDir);
+            }
+
+        }
+
+        bool donePassTwo = false;
+        public void PassTwo(string lstPath = null)
+        {
+            if (donePassTwo)
+            {
+                // This indicates a bug.
+                throw new InvalidOperationException("Pass two has already been done!");
+            }
+            //Console.Error.WriteLine("Beginning assembly pass two...\n");
+
+            // Attempt to satisfy our imports.
+            // We do this by searching for symbols (in our own symbol table) that still lack an address.
+            // For each such symbol, check 'Imports'.
+
+            StreamWriter writer = null;
+            if (lstPath != null)
+            {
+                writer = new StreamWriter(lstPath, false);
+                writer.WriteLine($"Geoff's SIC/XE Assembler (built on {_BUILD_DATE.ToShortDateString()})");
+                var now = DateTime.Now;
+                writer.WriteLine($"Username: {Environment.UserName}; {now.ToShortDateString()} {now.ToLongTimeString()}");
+                writer.WriteLine("-------------------------------------------------");
+                writer.WriteLine("Assembler Second Pass Report");
+                writer.WriteLine("---------------------------");
+                writer.WriteLine("Line   Address\tBinary\tSource");
+                writer.WriteLine("----   -------\t------\t---------------------------------");
+            }
+
+            Segment currentSegment = new Segment
+            {
+                BaseAddress = startAddress.Value,
+                Data = new List<byte>(),
+                OriginFile = prog.OriginFile
+            };
+            Output.AddSegment(currentSegment);
+
+            int segmentBaseAddress = 0; // Index in the code segment.
+            int overallAddress = startAddress.Value;
+            byte[] binInstr = null;
+            int? @base = null; // for base directive.
+            byte[] lineBytesToDisplay = null; // For for printing to LST file/console.
+            for (int lineIdx = 0; lineIdx < prog.Count; ++lineIdx)
+            {
+                Line line = prog[lineIdx];
+                if (line is Instruction instr)
+                {
+                    Debug.Assert(instr.Address == overallAddress);
+
+                    // Set each operand symbol's address using the symbol table.
+                    for (int operandIdx = 0; operandIdx < instr.Operands.Count; ++operandIdx)
+                    {
+                        Operand operand = instr.Operands[operandIdx];
+                        if (!operand.Value.HasValue)
+                        {
+                            string sym = TrimIndexer(operand.SymbolName);
+                            Debug.Assert(sym != null);
+                            var symbolEntry = symbols[sym];
+                            if (symbolEntry is EquSymbol equ)
+                            {
+                                if (int.TryParse(equ.Value, out int equValueAsInt))
+                                {
+                                    operand.Value = equValueAsInt;
+                                }
+                                else
+                                {
+                                    throw new InvalidProgramException($"Integer operand is required but \"{equ.Value}\" is not in a valid format.", line);
+                                }
+                            }
+                            else
+                            {
+                                operand.Value = symbolEntry.Address;
+                            }
+
+                        }
+                    }
+                    var operands = instr.Operands;
+
+                    switch (instr.Format)
+                    {
+                        case InstructionFormat.Format1:
+                            if (operands.Count != 0)
+                            {
+                                throw new InvalidProgramException($"Format 1 instruction takes no operands, but \"{string.Join(", ", operands)}\" was given!", instr);
+                            }
+                            binInstr = new byte[] { (byte)instr.Operation };
+                            break;
+                        case InstructionFormat.Format2:
+                            if (!(operands.Count == 1 || operands.Count == 2))
+                            {
+                                throw new InvalidProgramException($"Format 2 instruction takes 1 or 2 operands, but \"{string.Join(", ", operands)}\" was given!", instr);
+                            }
+                            binInstr = AssembleFormat2(instr);
+                            break;
+                        case InstructionFormat.Format3:
+                        case InstructionFormat.Format4:
+                            //try
+                            //{
+                                binInstr = AssembleFormats34(instr,
+                                    instr.Address.Value + (int)instr.Format,
+                                    @base);
+                            //}
+                            //catch (ArgumentException ex)
+                            //{
+                            //    throw new InvalidProgramException(ex.Message, instr);
+                            //}
+                            break;
+                        default:
+                            // This indicates a bug.
+#if DEBUG
+                            throw new ArgumentException($"Instruction has a bad format.");
+#else
+                        ReportError("Instruction has a bad format.", instr);
+                        break;
+#endif
+                    }
+                    currentSegment.Data.AddRange(binInstr);
+                    segmentBaseAddress += binInstr.Length;
+                    overallAddress += binInstr.Length;
+                    lineBytesToDisplay = binInstr;
+                }
+                else if (line is AssemblerDirective dir)
+                {
+                    Debug.Assert(dir.Directive == AssemblerDirective.Mnemonic.START || dir.Directive == AssemblerDirective.Mnemonic.EQU || dir.Address == segmentBaseAddress);
+                    byte[] buf;
+                    switch (dir.Directive)
+                    {
+                        case AssemblerDirective.Mnemonic.START:
+                            segmentBaseAddress = startAddress.Value;
+                            lineBytesToDisplay = null;
+                            break;
+                        case AssemblerDirective.Mnemonic.END:
+                            // Don't do anything.
+                            // In pass one, Symbol this.entryPoint should have already been set.
+                            lineBytesToDisplay = null;
+                            break;
+                        case AssemblerDirective.Mnemonic.BASE:
+                            Symbol baseSymbol;
+                            if (symbols.TryGetValue(dir.Value, out baseSymbol) && baseSymbol.Address.HasValue)
+                            {
+                                @base = baseSymbol.Address.Value;
+                            }
+                            else
+                            {
+                                throw new InvalidProgramException($"Undefined symbol \"{baseSymbol.Name}\".", dir);
+                            }
+                            lineBytesToDisplay = null;
+                            break;
+                        case AssemblerDirective.Mnemonic.BYTE:
+                            try
+                            {
+                                buf = AssembleByteDirective(dir);
+                            }
+                            catch (Exception ex)
+                            {
+                                if (!(ex is ArgumentException || ex is FormatException))
+                                    throw;
+                                throw new InvalidProgramException($"Could not parse argument to byte directive.", dir);
+                            }
+                            currentSegment.Data.AddRange(buf);
+                            segmentBaseAddress += buf.Length;
+                            overallAddress += buf.Length;
+                            lineBytesToDisplay = buf;
+                            break;
+                        case AssemblerDirective.Mnemonic.WORD:
+                            Word parsed;
+                            if (!Word.TryParse(dir.Value, out parsed))
+                            {
+                                throw new InvalidProgramException($"Could not parse word \"{dir.Value}\".", dir);
+                            }
+                            buf = parsed.ToArray().Reverse().ToArray();
+                            Debug.Assert(buf.Length == Word.Size);
+                            currentSegment.Data.AddRange(buf);
+                            segmentBaseAddress += buf.Length;
+                            overallAddress += buf.Length;
+                            lineBytesToDisplay = buf.ToArray();
+                            break;
+                        case AssemblerDirective.Mnemonic.RESB:
+                        case AssemblerDirective.Mnemonic.RESW:
+                            int unitSize;
+                            if (dir.Directive == AssemblerDirective.Mnemonic.RESW)
+                                unitSize = Word.Size; // RESW 5 means reserve 15 bytes.
+                            else
+                                unitSize = 1; // RESB 5 means reserve 5 bytes.
+                            int allocationSize;
+                            var valueToParse = dir.Value;
+                            var equDir = GetEqu(dir.Value);
+                            if (equDir != null)
+                                valueToParse = equDir.Value;
+                            if (int.TryParse(valueToParse, out allocationSize))
+                            {
+                                Output.AddSegment(currentSegment); // Push current segment.
+
+                                var newSeg = new Segment(); // Begin new segment.
+                                newSeg.OriginFile = prog.OriginFile;
+                                segmentBaseAddress += allocationSize * unitSize;
+                                overallAddress += allocationSize * unitSize;
+                                newSeg.BaseAddress = segmentBaseAddress;
+                                newSeg.Data = new List<byte>();
+                                Output.AddSegment(newSeg);
+                                currentSegment = newSeg;
+                            }
+                            else
+                            {
+                                throw new InvalidProgramException($"Could not parse integer \"{dir.Value}\".", dir);
+                            }
+                            lineBytesToDisplay = null;
+                            break;
+                        case AssemblerDirective.Mnemonic.LTORG:
+                            break; // this logic is already handled elsewhere; no need to do anything now.
+                        case AssemblerDirective.Mnemonic.EQU:
+
+                            break;
+                        default:
+                            // This indicates a bug.
+#if DEBUG
+                            throw new ArgumentException($"Unrecognized assembler directive.");
+#else
+                            ReportError("Ignoring unrecognized assembler directive.", dir);
+                            break;
+#endif
+                    }
+                }
+                if (writer != null)
+                {
+                    int separation = prog.LongestLabel;
+                    if (separation < 1)
+                        separation = 1;
+                    string address = line.Address.HasValue ? line.Address.Value.ToString("X6") : "??????";
+                    string printedLine;
+                    if (line.Comment != null && line.Comment.Length > 0)
+                    {
+                        if (lineBytesToDisplay != null)
+                        {
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{string.Join("", lineBytesToDisplay.Select(b => b.ToString("X2"))).PadRight(10)}\t{line.ToString(separation)}    \t{line.Comment}";
+                        }
+                        else
+                        {
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}        \t\t{line.ToString(separation)}    \t{line.Comment}";
+                        }
+                    }
+                    else
+                    {
+                        if (lineBytesToDisplay != null)
+                        {
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}\t{string.Join("", lineBytesToDisplay.Select(b => b.ToString("X2"))).PadRight(10)}\t{line.ToString(separation)}";
+                        }
+                        else
+                        {
+                            printedLine = $"{line.LineNumber.ToString("D3")}    {address}        \t\t{line.ToString(separation)}";
+                        }
+                    }
+#if DEBUG
+                    Console.Error.WriteLine(printedLine);
+#endif
+                    writer.WriteLine(printedLine);
+                }
+            }
+
+            if (entryPoint != null)
+            {
+                if (entryPoint.Address.HasValue)
+                {
+                    Output.EntryPoint = entryPoint.Address.Value;// + Output.Segments.First().BaseAddress.Value;
+                }
+                else
+                {
+                    throw new InvalidProgramException($"Symbol \"{entryPoint.Name}\" (in END directive) is undefined!", null);
+                }
+            }
+            else
+            {
+                int ep = Output.Segments.First().BaseAddress.Value;
+                Console.Error.WriteLine($"Warning: Missing or incomplete END directive. Assuming entry point is {ep.ToString("X")}.");
+                Output.EntryPoint = ep;
+            }
+
+            if (writer != null)
+                writer.Dispose();
+
+            donePassTwo = true;
+        } // PassTwo().
+
+        // Called during pass two.
+        private byte[] AssembleByteDirective(AssemblerDirective dir)
+        {
+            if (dir.Directive != AssemblerDirective.Mnemonic.BYTE)
+                throw new ArgumentException("Directive must be of BYTE type to be processed by this method.");
+
+            string str = dir.Value;
+            char byteType = dir.Value[0];
+            string payload = dir.Value.Substring(2, str.Length - 3);
+            switch (byteType)
+            {
+                case 'c':
+                case 'C':
+                    return System.Text.Encoding.ASCII.GetBytes(payload);
+                case 'x':
+                case 'X':
+                    if ((payload.Length & 1) > 0)
+                    {
+                        Console.Error.WriteLine($"Warning: Hex string in line {dir.LineNumber} contains uneven number of characters. The left will be padded with 0.");
+                        payload = '0' + payload;
+                    }
+                    return Literal.GetBytesFromHexString(payload);
+            }
+            throw new ArgumentException(nameof(dir));
+        }
+
+        // Called during pass two (but could be called during pass one!)
+        private byte[] AssembleFormat2(Instruction instr)
+        {
+            if (instr.Format != InstructionFormat.Format2)
+                throw new ArgumentException("Instruction must be format 2 to be processed by this method.");
+
+            byte[] ret = new byte[2];
+            ret[0] = (byte)instr.Operation;
+            ret[1] = (byte)(instr.Operands[0].Value << 4);
+            if (instr.Operands.Count > 1)
+                ret[1] |= (byte)(instr.Operands[1].Value);
+
+            return ret;
+        }
+
+        // Called during pass two.
+        private byte[] AssembleFormats34(Instruction instr, int programCounter, int? baseRegister)
+        {
+            const int MAX_F4_DISP = 1 << 20;
+            const int MIN_PC_DISP = -(1 << 11);
+            const int MAX_PC_DISP = 1 << 11;
+            const int MIN_BASE_DISP = 0;
+            const int MAX_BASE_DISP = 1 << 12;
+
+            int oplen = (int)instr.Format;
+
+            if (oplen != 3 && oplen != 4)
+                throw new ArgumentException("Instruction must be format 3 or 4 to be processed by this method.");
+
+            var binInstr = new byte[oplen];
+            Array.Clear(binInstr, 0, oplen); // Initialize array to all zeroes. (Not sure if this is necessary.)
+            binInstr[0] = (byte)instr.Operation; // Set first byte of instruction to opcode.
+
+            int opcount = instr.Operands.Count;
+            if (opcount == 1)
+            {
+                var firstOperand = instr.Operands[0];
+                if (!firstOperand.Value.HasValue)
+                    throw new ArgumentException($"Symbol \"{TrimIndexer(firstOperand.SymbolName)}\" is undefined!");
+
+                // Set flags that don't require knowledge of the displacement, N I X.
+                AddressingMode mode = firstOperand.AddressingMode;
+                bool indirect = mode.HasFlag(AddressingMode.Indirect);
+                bool immediate = mode.HasFlag(AddressingMode.Immediate);
+                bool indexed = mode.HasFlag(AddressingMode.Indexed);
+                if (!(indirect || immediate))
+                {
+                    binInstr[0] |= 3; // Set N,I flags.
+                }
+                else
+                {
+                    if (indirect)
+                    {
+                        binInstr[0] |= 2; // Set N flag.
+                    }
+                    if (immediate)
+                    {
+                        binInstr[0] |= 1; // Set I flag.
+                    }
+                }
+                if (indexed)
+                {
+                    binInstr[1] |= 0x80; // Set X flag.
+                }
+
+                // fixed this "startrelative" shit
+                // The fact is, every symbol's address is (when created), start-relative.
+                // In many cases, this is fine because the PC in this function is also start-relative
+                // and we end up doing PC-relative addressing in many cases, so taking their difference we get the correct answer.
+
+                // But what needs to be different sometimes is that we treat an operand's address as absolute instead of start-relative.
+                // We can still do (well, attempt) PC-relative addressing as usual in such cases--it's just that the offset has to be computed differently.
+
+                // A propose this solution, which I think will simplify many parts of the program.
+                // Make it so that everything's address is ALREADY start-relative.
+                // This means to start numbering all addresses at the start offset instead of at zero every time.
+
+                // Use extended addressing, if it is indicated.
+                if (instr.Format == InstructionFormat.Format4)
+                {
+                    int addr = firstOperand.Value.Value;
+                    if (immediate)
+                    {
+                        if (addr < 0)
+                            throw new ArgumentException("Displacement cannot be negative using extended, immediate addressing!");
+
+                        if (addr > MAX_F4_DISP)
+                            throw new ArgumentException($"Displacement is too large for extended mode: maximum is {MAX_F4_DISP}.");
+                    }
+
+                    // ni x b p e (high nibble)
+                    // 21 8 4 2 1
+                    binInstr[1] |= 0x10; // Set E flag.
+                    InsertDisplacement(binInstr, addr);
+                    return binInstr;
+                }
+
+                // If immediate and the operand is a number, put that number into the operand field.
+                if (immediate && (firstOperand.SymbolName == null || firstOperand.SymbolName.Length == 0))
+                {
+                    int imm = firstOperand.Value.Value;
+                    if (imm >= MIN_PC_DISP && imm <= MAX_PC_DISP)
+                    {
+                        // Immediate fits in 12 bits.
+                        InsertDisplacement(binInstr, imm);
+                        return binInstr;
+                    }
+                    else
+                    {
+                        throw new ArgumentException("Immediate is too large for format 3 instruction!");
+                    }
+                }
+
+                int pcDisp = firstOperand.Value.Value - programCounter;
+
+                // Try using PC-relative addressing.
+                if (pcDisp >= MIN_PC_DISP && pcDisp <= MAX_PC_DISP)
+                {
+                    // PC-relative addressing is valid.
+                    binInstr[1] |= 0x20; // Set P flag.
+                    InsertDisplacement(binInstr, pcDisp);
+                    return binInstr;
+                }
+
+                // PC-relative addressing failed. Try base-relative addressing.
+                // Base-relative addressing will "work as expected" at execution time only if the value of the base register matches the 'baseRegister' parameter of this method.
+                if (baseRegister.HasValue)
+                {
+
+                    int bDisp = firstOperand.Value.Value - baseRegister.Value;
+                    if (bDisp >= MIN_BASE_DISP && bDisp <= MAX_BASE_DISP)
+                    {
+                        // Base-relative addressing is valid.
+                        binInstr[1] |= 0x40; // Set B flag.
+                        InsertDisplacement(binInstr, bDisp);
+                        return binInstr;
+                    }
+                }
+
+                throw new ArgumentException($"Could not assemble format 3 instruction using displacement 0x{firstOperand.Value.Value.ToString("X")}.");
+            }
+
+            if (opcount == 0)
+            {
+                // The only nullary format 3/4 instruction is RSUB.
+                if (instr.Operation != Instruction.Mnemonic.RSUB)
+                    throw new ArgumentException($"Missing operand(s) for instruction {instr.ToString()}.");
+
+                // What should we expect addressing mode to be here?
+                // all flags zero?
+                // ni=11, rest zero?
+                return new byte[] { (byte)Instruction.Mnemonic.RSUB, 0, 0 };
+            }
+            throw new ArgumentException($"Too many operands for format {oplen} instruction {instr.ToString()}.");
+        }
+
+        // Called during pass two.
+        private static void InsertDisplacement(byte[] instruction, int displacement)
+        {
+            int len = instruction.Length;
+            byte[] dispBytes;
+            switch (len)
+            {
+                case 3:
+                    dispBytes = EncodeNumber(displacement, 12);
+                    Debug.Assert(dispBytes.Length == 2, "EncodeNumber gave us wrong number of bytes!");
+                    Debug.Assert((instruction[1] & 0x3) == 0, "disp bits are already set in instruction!");
+                    Debug.Assert(instruction[2] == 0, "disp bits are already set in instruction!");
+                    instruction[2] = dispBytes[0];
+                    instruction[1] |= dispBytes[1];
+                    break;
+                case 4:
+                    dispBytes = EncodeNumber(displacement, 20);
+                    Debug.Assert(dispBytes.Length == 3, "EncodeNumber gave us wrong number of bytes!");
+                    Debug.Assert((instruction[1] & 0x3) == 0, "disp bits are already set in instruction!");
+                    Debug.Assert(instruction[2] == 0, "disp bits are already set in instruction!");
+                    Debug.Assert(instruction[3] == 0, "disp bits are already set in instruction!");
+                    instruction[3] = dispBytes[0];
+                    instruction[2] = dispBytes[1];
+                    instruction[1] |= dispBytes[2];
+                    break;
+                default:
+                    throw new ArgumentException("Instruction length must be 3 or 4 bytes in length.");
+            }
+        }
+
+        /// <summary>
+        /// Removes ",x" from the end of the string, if it is present.
+        /// </summary>
+        private static string TrimIndexer(string symbol)
+        {
+            const string INDEX_SUFFIX = ",x";
+            if (symbol.EndsWith(INDEX_SUFFIX, StringComparison.InvariantCultureIgnoreCase))
+            {
+                return symbol.Substring(0, symbol.Length - INDEX_SUFFIX.Length);
+            }
+            return symbol;
+        }
+
+        private static byte[] EncodeNumber(int n, int bits)
+        {
+            int highMask = checked(~((1 << bits) - 1));
+            if ((highMask & bits) > 0)
+            {
+                // Higher bits are set in 'n' than 2^bits.
+                throw new OverflowException();
+            }
+            n &= ~highMask;
+
+            int retlen = (int)Math.Ceiling(bits / 8d);
+            var ret = new byte[retlen];
+            for (int b = 0; b < retlen; ++b)
+            {
+                int only = (0xff << (b * 8)) & n;
+                ret[b] = (byte)(only >> (b * 8));
+            }
+            return ret;
+        }
+
+        static readonly DateTime _BUILD_DATE;
+        static FileAssembler()
+        {
+            var version = System.Reflection.Assembly.GetEntryAssembly().GetName().Version;
+            _BUILD_DATE = new DateTime(2000, 1, 1).Add(new TimeSpan(TimeSpan.TicksPerDay * version.Build + 2 * TimeSpan.TicksPerSecond * version.Revision));
+        }
+    }
+}
