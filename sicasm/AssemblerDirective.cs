@@ -96,7 +96,7 @@ namespace SICXEAssembler
         public override string ToString()
         {
             if (Label != null)
-                return $"{Label}\t{Directive.ToString()} {Value} {Comment}";
+                return $"{Label} {Directive.ToString()} {Value} {Comment}";
             return $"{Directive.ToString()} {Value} {Comment}";
         }
 

@@ -523,7 +523,7 @@ namespace SICXEAssembler
             if (Operands.Count == 1 && Operands[0].Type == OperandType.Address)
             {
                 if (Flags == 0)
-                    return $"{prefix} {Operation} {Operands[0]}";
+                    return $"{prefix}{Operation} {Operands[0]}";
                 var f = Flags;
                 var operandPrefix = "";
                 var operandSuffix = "";
