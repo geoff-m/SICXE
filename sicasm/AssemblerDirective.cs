@@ -96,15 +96,15 @@ namespace SICXEAssembler
         public override string ToString()
         {
             if (Label != null)
-                return $"{Label} {Directive.ToString()} {Value} {Comment}";
-            return $"{Directive.ToString()} {Value} {Comment}";
+                return $"{Label} {Directive.ToString()} {Value}";
+            return $"{Directive.ToString()} {Value}";
         }
 
         public override string ToString(int space)
         {
             if (Label != null)
-                return $"{Label}{new string(' ', Math.Max(1, space - Label.Length + 2))}{Directive.ToString()} {Value} {Comment}";
-            return $"{new string(' ', space + 2)}{Directive.ToString()} {Value} {Comment}";
+                return $"{Label}{new string(' ', Math.Max(1, space - Label.Length + 2))}{Directive.ToString()} {Value}";
+            return $"{new string(' ', space + 2)}{Directive.ToString()} {Value}";
         }
     }
 }

@@ -595,7 +595,6 @@ namespace SICXEAssembler
             }
                 
             return sb.ToString();
-            //return {string.Join(",", Operands)}";
         }
 
         public static int Decode12BitTwosComplement(int n, out bool positive)
