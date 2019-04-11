@@ -692,7 +692,6 @@ namespace SICXEAssembler
                             {
                                 operand.Value = symbolEntry.Address;
                             }
-
                         }
                     }
                     var operands = instr.Operands;
@@ -728,12 +727,8 @@ namespace SICXEAssembler
                             break;
                         default:
                             // This indicates a bug.
-#if DEBUG
                             throw new ArgumentException($"Instruction has a bad format.");
-#else
-                        ReportError("Instruction has a bad format.", instr);
-                        break;
-#endif
+
                     }
                     currentSegment.Data.AddRange(binInstr);
                     segmentBaseAddress += binInstr.Length;
@@ -834,12 +829,7 @@ namespace SICXEAssembler
                             break;
                         default:
                             // This indicates a bug.
-#if DEBUG
                             throw new ArgumentException($"Unrecognized assembler directive.");
-#else
-                            ReportError("Ignoring unrecognized assembler directive.", dir);
-                            break;
-#endif
                     }
                 }
                 if (writer != null)

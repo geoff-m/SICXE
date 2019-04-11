@@ -97,7 +97,7 @@ namespace SICXEAssembler
                     if (ex is System.Threading.ThreadAbortException)
                     {
                         throw new InvalidProgramException($"Aborted during assembling \"{currentFile}\".", null);
-                        throw;
+                        throw; // To ensure abort rises even if IPE is caught.
                     }
                     else
                     {
